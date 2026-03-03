@@ -464,6 +464,43 @@
       margin-left: 6px;
     }
 
+    /* ===== 台本タイピングインジケーター ===== */
+    #script-typing-indicator {
+      min-height: 22px;
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .typing-dots {
+      display: inline-flex;
+      gap: 3px;
+    }
+    .typing-dots span {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: typing-bounce 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    /* リモート更新フラッシュ */
+    @keyframes script-flash {
+      0%   { background: rgba(108,99,255,0.12); border-color: var(--accent); }
+      100% { background: var(--surface2);       border-color: var(--border);  }
+    }
+    #script-textarea.remote-updated {
+      animation: script-flash 0.8s ease-out;
+    }
+
     /* ===== アップロードステータスエリア ===== */
     #upload-status-area {
       margin-top: 14px;
@@ -633,13 +670,14 @@
       <span class="sync-badge offline" id="sync-badge">ローカルのみ</span>
       <span id="script-user-count" style="display:none"></span>
     </div>
-    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:12px;">
-      通話ルームに参加すると、全参加者とリアルタイムで共有・同時編集できます。
+    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:12px;" id="script-hint">
+      通話ルームに参加すると、全参加者がリアルタイムで同時編集できます。
     </p>
     <textarea
       id="script-textarea"
       placeholder="台本やメモをここに入力してください。&#10;&#10;例：&#10;【オープニング】&#10;「こんにちは、〇〇ポッドキャストへようこそ」&#10;&#10;【トピック1】&#10;・..."
     ></textarea>
+    <div id="script-typing-indicator"></div>
   </div>
 
 </main>
@@ -782,6 +820,8 @@ function initSocket() {
   // 参加者退出
   ws.socket.on('peer-left', (peerId) => {
     removePeer(peerId);
+    typingPeers.delete(peerId);
+    updateTypingIndicator();
     updateParticipants();
     showToast('参加者が退出しました', 'info');
   });
@@ -795,6 +835,18 @@ function initSocket() {
     ta.value = content;
     if (hadFocus) ta.setSelectionRange(start, end);
     updateSyncBadge('synced');
+    // フラッシュアニメーション
+    ta.classList.remove('remote-updated');
+    void ta.offsetWidth; // reflow
+    ta.classList.add('remote-updated');
+    setTimeout(() => ta.classList.remove('remote-updated'), 800);
+  });
+
+  // タイピングインジケーター受信
+  ws.socket.on('peer-typing', ({ peerId, isTyping }) => {
+    if (isTyping) typingPeers.add(peerId);
+    else typingPeers.delete(peerId);
+    updateTypingIndicator();
   });
 }
 
@@ -889,6 +941,11 @@ function removePeer(peerId) {
 function updateParticipants() {
   const count = Object.keys(ws.peers).length + 1;
   $('call-participants').textContent = `参加者：${count}人`;
+  const userCount = $('script-user-count');
+  if (ws.inCall) {
+    userCount.style.display = 'inline';
+    userCount.textContent = `${count}人が参加中`;
+  }
 }
 
 // ===== 通話参加 =====
@@ -961,6 +1018,7 @@ async function joinCall() {
     // 2カラムレイアウトに切り替え
     document.querySelector('main').classList.add('in-call');
     updateSyncBadge('synced');
+    $('script-hint').textContent = '全参加者とリアルタイム同時編集中。誰かが入力すると即座に全員の画面に反映されます。';
 
   } catch (err) {
     $('btn-join-call').disabled = false;
@@ -1022,6 +1080,14 @@ function leaveCall() {
   // 1カラムレイアウトに戻す
   document.querySelector('main').classList.remove('in-call');
   updateSyncBadge('offline');
+
+  // タイピング状態・参加者数表示リセット
+  if (ws.socket) ws.socket.emit('script-typing', false);
+  clearTimeout(typingStopTimer);
+  typingPeers.clear();
+  updateTypingIndicator();
+  $('script-user-count').style.display = 'none';
+  $('script-hint').textContent = '通話ルームに参加すると、全参加者がリアルタイムで同時編集できます。';
 }
 
 // ===== マイクトグル =====
@@ -1090,15 +1156,38 @@ function updateSyncBadge(state) {
   badge.textContent = labels[state] || state;
 }
 
+// タイピングインジケーター管理
+const typingPeers = new Set();
+let typingStopTimer = null;
+
+function updateTypingIndicator() {
+  const el = $('script-typing-indicator');
+  const count = typingPeers.size;
+  if (count === 0 || !ws.inCall) {
+    el.innerHTML = '';
+    return;
+  }
+  const text = count === 1 ? '1人が編集中' : `${count}人が編集中`;
+  el.innerHTML = `<span>${text}</span><div class="typing-dots"><span></span><span></span><span></span></div>`;
+}
+
 let scriptDebounce = null;
 $('script-textarea').addEventListener('input', () => {
   if (!ws.roomId) return;
+
+  // タイピング開始を通知
+  if (ws.socket) ws.socket.emit('script-typing', true);
+  clearTimeout(typingStopTimer);
+  typingStopTimer = setTimeout(() => {
+    if (ws.socket) ws.socket.emit('script-typing', false);
+  }, 1500);
+
   clearTimeout(scriptDebounce);
   updateSyncBadge('syncing');
   scriptDebounce = setTimeout(() => {
     ws.socket.emit('script-update', { content: $('script-textarea').value });
     updateSyncBadge('synced');
-  }, 400);
+  }, 150); // 400ms → 150ms に短縮
 });
 
 // =========================================================

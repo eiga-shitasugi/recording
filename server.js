@@ -147,6 +147,13 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('script-content', content);
   });
 
+  // 台本タイピングインジケーター中継
+  socket.on('script-typing', (isTyping) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || typeof isTyping !== 'boolean') return;
+    socket.to(roomId).emit('peer-typing', { peerId: socket.id, isTyping });
+  });
+
   socket.on('leave-room', () => leaveRoom(socket));
 
   socket.on('disconnect', () => {
