@@ -72,6 +72,9 @@ app.get('/recordings/:filename', (req, res) => {
 // roomId -> Set<socketId>
 const rooms = new Map();
 
+// roomId -> 台本テキスト
+const roomScripts = new Map();
+
 function leaveRoom(socket) {
   const roomId = socket.data.roomId;
   if (!roomId) return;
@@ -79,7 +82,10 @@ function leaveRoom(socket) {
   const room = rooms.get(roomId);
   if (room) {
     room.delete(socket.id);
-    if (room.size === 0) rooms.delete(roomId);
+    if (room.size === 0) {
+      rooms.delete(roomId);
+      roomScripts.delete(roomId);
+    }
   }
 
   socket.to(roomId).emit('peer-left', socket.id);
@@ -113,6 +119,10 @@ io.on('connection', (socket) => {
     room.add(socket.id);
     socket.data.roomId = roomId;
     console.log(`[参加] room=${roomId} 人数=${room.size}`);
+
+    // 台本の現在の内容を新規参加者へ送信
+    const currentScript = roomScripts.get(roomId) || '';
+    socket.emit('script-content', currentScript);
   });
 
   // WebRTC シグナリング中継
@@ -126,6 +136,15 @@ io.on('connection', (socket) => {
 
   socket.on('ice-candidate', ({ to, candidate }) => {
     if (to && candidate) io.to(to).emit('ice-candidate', { from: socket.id, candidate });
+  });
+
+  // 台本リアルタイム共有
+  socket.on('script-update', ({ content }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || typeof content !== 'string') return;
+    if (content.length > 100000) return; // 10万文字制限
+    roomScripts.set(roomId, content);
+    socket.to(roomId).emit('script-content', content);
   });
 
   socket.on('leave-room', () => leaveRoom(socket));

@@ -424,6 +424,84 @@
     @media (max-width: 400px) {
       #video-grid { grid-template-columns: 1fr; }
     }
+
+    /* ===== 台本エリア ===== */
+    #script-textarea {
+      width: 100%;
+      min-height: 280px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 14px;
+      font-size: 0.95rem;
+      font-family: 'Hiragino Sans', 'Meiryo', 'Yu Gothic', sans-serif;
+      line-height: 1.8;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #script-textarea:focus { border-color: var(--accent); }
+    #script-textarea::placeholder { color: var(--text-dim); opacity: 0.7; }
+
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.78rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+    .sync-badge.offline { background: rgba(136,136,153,0.15); color: var(--text-dim); }
+    .sync-badge.syncing { background: rgba(255,170,0,0.15); color: var(--yellow); }
+    .sync-badge.synced  { background: rgba(34,204,102,0.15); color: var(--green); }
+
+    #script-user-count {
+      font-size: 0.78rem;
+      color: var(--teal);
+      margin-left: 6px;
+    }
+
+    /* ===== アップロードステータスエリア ===== */
+    #upload-status-area {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      display: none;
+    }
+    #upload-status-area.visible { display: block; }
+    #upload-status-msg {
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    /* ===== 2カラムレイアウト（通話中） ===== */
+    @media (min-width: 960px) {
+      main.in-call {
+        max-width: 1440px;
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: 24px;
+        align-items: start;
+      }
+      main.in-call > #call-card     { grid-column: 1; grid-row: 1; }
+      main.in-call > #recording-card { grid-column: 1; grid-row: 2; }
+      main.in-call > #files-card    { grid-column: 1; grid-row: 3; }
+      main.in-call > #script-card   {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+        position: sticky;
+        top: 16px;
+      }
+      main.in-call #script-textarea { min-height: 500px; }
+    }
   </style>
 </head>
 <body>
@@ -455,7 +533,7 @@
 <main>
 
   <!-- ===== ビデオ通話 ===== -->
-  <div class="card">
+  <div class="card" id="call-card">
     <div class="card-title">📹 ビデオ通話</div>
 
     <!-- 参加前 -->
@@ -509,7 +587,7 @@
   </div>
 
   <!-- ===== 録音 ===== -->
-  <div class="card">
+  <div class="card" id="recording-card">
     <div class="card-title">🎙️ 録音</div>
 
     <div class="form-row">
@@ -532,17 +610,36 @@
 
     <div id="chunk-log"></div>
 
-    <div class="progress-wrap" id="upload-progress">
-      <div class="progress-bar" id="progress-bar"></div>
+    <div id="upload-status-area">
+      <div id="upload-status-msg"></div>
+      <div class="progress-wrap visible" id="upload-progress">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
     </div>
   </div>
 
   <!-- ===== 録音ファイル一覧 ===== -->
-  <div class="card">
+  <div class="card" id="files-card">
     <div class="card-title">📁 録音ファイル</div>
     <div id="file-list">
       <div class="empty-state">録音を開始すると、ここにファイルが表示されます</div>
     </div>
+  </div>
+
+  <!-- ===== 台本・メモ ===== -->
+  <div class="card" id="script-card">
+    <div class="card-title">
+      📝 台本・メモ
+      <span class="sync-badge offline" id="sync-badge">ローカルのみ</span>
+      <span id="script-user-count" style="display:none"></span>
+    </div>
+    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:12px;">
+      通話ルームに参加すると、全参加者とリアルタイムで共有・同時編集できます。
+    </p>
+    <textarea
+      id="script-textarea"
+      placeholder="台本やメモをここに入力してください。&#10;&#10;例：&#10;【オープニング】&#10;「こんにちは、〇〇ポッドキャストへようこそ」&#10;&#10;【トピック1】&#10;・..."
+    ></textarea>
   </div>
 
 </main>
@@ -687,6 +784,17 @@ function initSocket() {
     removePeer(peerId);
     updateParticipants();
     showToast('参加者が退出しました', 'info');
+  });
+
+  // 台本リアルタイム同期
+  ws.socket.on('script-content', (content) => {
+    const ta = $('script-textarea');
+    const hadFocus = ta === document.activeElement;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    ta.value = content;
+    if (hadFocus) ta.setSelectionRange(start, end);
+    updateSyncBadge('synced');
   });
 }
 
@@ -850,6 +958,10 @@ async function joinCall() {
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
 
+    // 2カラムレイアウトに切り替え
+    document.querySelector('main').classList.add('in-call');
+    updateSyncBadge('synced');
+
   } catch (err) {
     $('btn-join-call').disabled = false;
     $('btn-join-call').textContent = '📹 通話に参加';
@@ -906,6 +1018,10 @@ function leaveCall() {
   setDot('call', 'ok');
   $('label-call').textContent = '通話：接続OK';
   showToast('通話を終了しました', 'info');
+
+  // 1カラムレイアウトに戻す
+  document.querySelector('main').classList.remove('in-call');
+  updateSyncBadge('offline');
 }
 
 // ===== マイクトグル =====
@@ -964,6 +1080,25 @@ $('btn-copy-url').addEventListener('click', () => {
 });
 $('room-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') joinCall();
+});
+
+// ===== 台本リアルタイム同期 =====
+function updateSyncBadge(state) {
+  const badge = $('sync-badge');
+  badge.className = `sync-badge ${state}`;
+  const labels = { offline: 'ローカルのみ', syncing: '同期中...', synced: '同期済み' };
+  badge.textContent = labels[state] || state;
+}
+
+let scriptDebounce = null;
+$('script-textarea').addEventListener('input', () => {
+  if (!ws.roomId) return;
+  clearTimeout(scriptDebounce);
+  updateSyncBadge('syncing');
+  scriptDebounce = setTimeout(() => {
+    ws.socket.emit('script-update', { content: $('script-textarea').value });
+    updateSyncBadge('synced');
+  }, 400);
 });
 
 // =========================================================
@@ -1075,9 +1210,12 @@ function finalizeRecording() {
   const ext = state.mimeType.includes('ogg') ? 'ogg' : state.mimeType.includes('mp4') ? 'mp4' : 'webm';
   const blob = new Blob(state.chunks, { type: state.mimeType || 'audio/webm' });
   const ts = formatDatetime(new Date());
-  addLocalFile(blob, `録音_${ts}.${ext}`);
+  const filename = `録音_${ts}.${ext}`;
+  addLocalFile(blob, filename);
   state.chunks = [];
-  showToast('録音を保存しました', 'success');
+  showToast('録音を保存しました。サーバーへ自動送信中...', 'info');
+  // 録音停止後に自動アップロード（失敗してもローカルデータは残る）
+  uploadToServer(blob, filename);
 }
 
 function saveChunk() {
@@ -1138,11 +1276,15 @@ function uploadFile(index) {
 }
 
 async function uploadToServer(blob, filename) {
-  const progressWrap = $('upload-progress');
-  const progressBar  = $('progress-bar');
+  const statusArea  = $('upload-status-area');
+  const statusMsg   = $('upload-status-msg');
+  const progressBar = $('progress-bar');
+
+  statusArea.classList.add('visible');
+  statusMsg.innerHTML = `<span>⬆️</span><span>「${filename}」をサーバーへ送信中...</span>`;
+  progressBar.style.width = '10%';
+
   try {
-    progressWrap.classList.add('visible');
-    progressBar.style.width = '10%';
     const formData = new FormData();
     formData.append('audio', blob, filename);
     const xhr = new XMLHttpRequest();
@@ -1158,13 +1300,17 @@ async function uploadToServer(blob, filename) {
       xhr.send(formData);
     });
     progressBar.style.width = '100%';
-    setTimeout(() => { progressWrap.classList.remove('visible'); progressBar.style.width = '0'; }, 800);
-    showToast(`「${filename}」をサーバーに送信しました`, 'success');
+    statusMsg.innerHTML = `<span style="color:var(--green)">✓</span><span style="color:var(--green)">サーバーへの送信完了：${filename}</span>`;
+    setTimeout(() => {
+      progressBar.style.width = '0';
+      statusArea.classList.remove('visible');
+    }, 4000);
     setDot('server', 'ok');
     $('label-server').textContent = 'サーバー：接続OK';
   } catch (err) {
-    progressWrap.classList.remove('visible');
     progressBar.style.width = '0';
+    statusMsg.innerHTML = `<span style="color:var(--yellow)">⚠️</span><span style="color:var(--yellow)">送信失敗（ローカルに保存済み）：${err.message}</span>`;
+    setTimeout(() => { statusArea.classList.remove('visible'); }, 6000);
     console.warn('アップロード失敗（ローカル保存は継続）:', err.message);
     setDot('server', 'warn');
     $('label-server').textContent = 'サーバー：送信失敗（録音継続中）';
