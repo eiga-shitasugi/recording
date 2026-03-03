@@ -1,0 +1,22 @@
+# 依存パッケージ
+node_modules/
+
+# 録音ファイル（サーバー上で生成されるもの）
+uploads/
+
+# 環境変数
+.env
+.env.local
+.env.production
+
+# ログ
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+*.swp

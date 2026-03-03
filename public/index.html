@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ポッドキャスト収録・ビデオ通話</title>
+  <style>
+    /* ===== リセット & ベース ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #242433;
+      --border: #2e2e42;
+      --accent: #6c63ff;
+      --accent-hover: #8b84ff;
+      --red: #ff4444;
+      --red-dark: #cc2222;
+      --green: #22cc66;
+      --yellow: #ffaa00;
+      --teal: #00bcd4;
+      --text: #e8e8f0;
+      --text-dim: #888899;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Hiragino Sans', 'Meiryo', 'Yu Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== ヘッダー ===== */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em; }
+    header span.icon { font-size: 1.5rem; }
+
+    /* ===== ステータスバー ===== */
+    #status-bar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 0.88rem;
+    }
+    .status-item { display: flex; align-items: center; gap: 6px; }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .dot.active { background: var(--red); animation: pulse 1s ease-in-out infinite; }
+    .dot.ok { background: var(--green); animation: none; }
+    .dot.warn { background: var(--yellow); animation: none; }
+    .dot.call-active { background: var(--teal); animation: pulse 1s ease-in-out infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* ===== メインレイアウト ===== */
+    main {
+      flex: 1;
+      padding: 24px;
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ===== カード ===== */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ===== 録音パネル ===== */
+    #rec-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px;
+      border-radius: var(--radius);
+      background: var(--surface2);
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: 2px solid var(--border);
+      transition: all 0.3s;
+      min-height: 72px;
+    }
+    #rec-indicator.recording { background: rgba(255,68,68,0.12); border-color: var(--red); color: var(--red); }
+    #rec-indicator.ready { color: var(--text-dim); }
+    #rec-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+    #rec-indicator.recording #rec-dot { background: var(--red); animation: pulse 1s ease-in-out infinite; }
+    #rec-timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; letter-spacing: 0.05em; }
+
+    /* ===== ボタン共通 ===== */
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      flex: 1;
+      min-width: 130px;
+      padding: 14px 18px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+    }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-record { background: var(--red); color: #fff; }
+    .btn-record:not(:disabled):hover { background: var(--red-dark); transform: translateY(-1px); }
+    .btn-stop { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-stop:not(:disabled):hover { background: var(--border); transform: translateY(-1px); }
+    .btn-save { background: var(--accent); color: #fff; }
+    .btn-save:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-teal { background: var(--teal); color: #000; font-weight: 800; }
+    .btn-teal:not(:disabled):hover { background: #00a5ba; transform: translateY(-1px); }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:not(:disabled):hover { background: var(--border); transform: translateY(-1px); }
+    .btn-danger { background: rgba(255,68,68,0.15); color: var(--red); border: 1px solid var(--red); }
+    .btn-danger:not(:disabled):hover { background: rgba(255,68,68,0.25); transform: translateY(-1px); }
+
+    /* ===== フォーム ===== */
+    .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    label { font-size: 0.85rem; color: var(--text-dim); }
+    select, input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus, input[type="text"]:focus { border-color: var(--accent); }
+    select { cursor: pointer; }
+    select option { background: var(--surface2); }
+    input[type="text"]::placeholder { color: var(--text-dim); }
+
+    /* ===== ビデオ通話UI ===== */
+    #call-setup { }
+
+    .room-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .room-input-row input {
+      flex: 1;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .room-input-row .btn-ghost {
+      flex: 0 0 auto;
+      min-width: unset;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+
+    /* 招待バー */
+    #invite-bar {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    #invite-bar .invite-label {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    #invite-url-text {
+      flex: 1;
+      font-size: 0.82rem;
+      color: var(--accent);
+      word-break: break-all;
+      min-width: 0;
+    }
+    #btn-copy-url {
+      flex-shrink: 0;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    #btn-copy-url:hover { background: var(--accent-hover); }
+
+    /* ビデオグリッド */
+    #video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+      min-height: 160px;
+    }
+
+    .video-wrapper {
+      position: relative;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      border: 2px solid var(--border);
+    }
+    .video-wrapper.local-wrapper { border-color: var(--teal); }
+    .video-wrapper.remote-wrapper { border-color: var(--border); }
+    .video-wrapper video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    /* 自分の映像は左右反転 */
+    .local-wrapper video { transform: scaleX(-1); }
+
+    .video-label {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .video-wrapper.local-wrapper .video-label { background: rgba(0,188,212,0.75); }
+
+    .video-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      background: var(--surface2);
+    }
+    .video-placeholder .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    /* 通話中のメタ情報 */
+    #call-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    #call-participants { font-weight: 700; color: var(--teal); }
+
+    /* 通話コントロール */
+    #call-controls .btn { min-width: 110px; padding: 12px 14px; font-size: 0.88rem; }
+    .btn.muted { opacity: 0.55; }
+
+    /* ===== 自動保存ログ ===== */
+    #chunk-log {
+      max-height: 120px;
+      overflow-y: auto;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 16px;
+    }
+    .log-entry {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-entry .time { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+    /* ===== 録音ファイル一覧 ===== */
+    #file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .file-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+    .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .btn-small {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-dl { background: var(--accent); color: #fff; }
+    .btn-dl:hover { background: var(--accent-hover); }
+    audio {
+      width: 100%;
+      height: 36px;
+      margin-top: 8px;
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    audio::-webkit-media-controls-panel { background: var(--surface2); }
+
+    /* ===== アップロード進捗 ===== */
+    .progress-wrap { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; margin-top: 12px; display: none; }
+    .progress-wrap.visible { display: block; }
+    .progress-bar { height: 100%; background: var(--accent); width: 0; transition: width 0.3s; border-radius: 999px; }
+
+    .empty-state { text-align: center; padding: 32px; color: var(--text-dim); font-size: 0.9rem; }
+
+    /* ===== トースト ===== */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 1000;
+      white-space: nowrap;
+      max-width: 90vw;
+      text-align: center;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: var(--green); color: var(--green); }
+    #toast.error { border-color: var(--red); color: var(--red); }
+    #toast.info { border-color: var(--accent); color: var(--accent); }
+
+    /* ===== レスポンシブ ===== */
+    @media (max-width: 600px) {
+      main { padding: 12px; gap: 16px; }
+      .card { padding: 16px; }
+      .btn { min-width: 100px; padding: 12px 12px; font-size: 0.88rem; }
+      #rec-timer { font-size: 1.2rem; }
+      #video-grid { grid-template-columns: 1fr 1fr; }
+      #call-controls .btn { min-width: 80px; font-size: 0.78rem; padding: 10px 8px; }
+    }
+    @media (max-width: 400px) {
+      #video-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="icon">🎙️</span>
+  <h1>ポッドキャスト収録・ビデオ通話</h1>
+</header>
+
+<div id="status-bar">
+  <div class="status-item">
+    <div class="dot" id="dot-mic"></div>
+    <span id="label-mic">マイク：未接続</span>
+  </div>
+  <div class="status-item">
+    <div class="dot" id="dot-rec"></div>
+    <span id="label-rec">録音：停止中</span>
+  </div>
+  <div class="status-item">
+    <div class="dot" id="dot-call"></div>
+    <span id="label-call">通話：未接続</span>
+  </div>
+  <div class="status-item">
+    <div class="dot" id="dot-server"></div>
+    <span id="label-server">サーバー：確認中</span>
+  </div>
+</div>
+
+<main>
+
+  <!-- ===== ビデオ通話 ===== -->
+  <div class="card">
+    <div class="card-title">📹 ビデオ通話</div>
+
+    <!-- 参加前 -->
+    <div id="call-setup">
+      <div class="form-row">
+        <label>ルームID（英数字・自動生成されます）</label>
+        <div class="room-input-row">
+          <input type="text" id="room-input" placeholder="例：ABC123" maxlength="12">
+          <button class="btn btn-ghost" id="btn-random-room">ランダム</button>
+        </div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:16px;">
+        同じルームIDを入力するだけで、URLの共有なしでも通話できます。
+      </p>
+      <div class="btn-row">
+        <button class="btn btn-teal" id="btn-join-call">📹 通話に参加</button>
+      </div>
+    </div>
+
+    <!-- 通話中 -->
+    <div id="call-active" style="display:none">
+      <!-- 招待URL -->
+      <div id="invite-bar">
+        <span class="invite-label">招待URL</span>
+        <span id="invite-url-text"></span>
+        <button id="btn-copy-url">コピー</button>
+      </div>
+
+      <!-- 参加者数・ルームID表示 -->
+      <div id="call-meta">
+        <span id="call-participants">参加者：自分のみ</span>
+        <span id="call-room-label" style="color:var(--text-dim)"></span>
+      </div>
+
+      <!-- ビデオグリッド -->
+      <div id="video-grid">
+        <!-- ローカル映像 -->
+        <div class="video-wrapper local-wrapper" id="local-wrapper">
+          <video id="local-video" autoplay muted playsinline></video>
+          <div class="video-label">自分</div>
+        </div>
+      </div>
+
+      <!-- 通話コントロール -->
+      <div class="btn-row" id="call-controls">
+        <button class="btn btn-ghost" id="btn-mute-audio">🎙️ ミュート</button>
+        <button class="btn btn-ghost" id="btn-mute-video">📹 カメラOFF</button>
+        <button class="btn btn-danger" id="btn-leave-call">📵 通話終了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 録音 ===== -->
+  <div class="card">
+    <div class="card-title">🎙️ 録音</div>
+
+    <div class="form-row">
+      <label for="mic-select">使用するマイク</label>
+      <select id="mic-select">
+        <option value="">（マイクを検出中...）</option>
+      </select>
+    </div>
+
+    <div id="rec-indicator" class="ready">
+      <div id="rec-dot"></div>
+      <span id="rec-status-text">録音停止中</span>
+      <span id="rec-timer" style="display:none">00:00</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-record" id="btn-start">⏺ 録音開始</button>
+      <button class="btn btn-stop" id="btn-stop" disabled>⏹ 録音停止</button>
+    </div>
+
+    <div id="chunk-log"></div>
+
+    <div class="progress-wrap" id="upload-progress">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+  </div>
+
+  <!-- ===== 録音ファイル一覧 ===== -->
+  <div class="card">
+    <div class="card-title">📁 録音ファイル</div>
+    <div id="file-list">
+      <div class="empty-state">録音を開始すると、ここにファイルが表示されます</div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<!-- Socket.io クライアント -->
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+// ===== DOM ヘルパー =====
+const $ = id => document.getElementById(id);
+
+// ===== 共通 UI ヘルパー =====
+function setDot(id, cls) {
+  const dot = $(`dot-${id}`);
+  dot.className = 'dot' + (cls ? ` ${cls}` : '');
+}
+
+let toastTimer;
+function showToast(msg, type = 'info') {
+  const toast = $('toast');
+  toast.textContent = msg;
+  toast.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = ''; }, 3200);
+}
+
+// ===== フォーマット =====
+function formatDatetime(d) {
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+function formatDatetimeDisplay(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function formatTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+function pad(n) { return String(n).padStart(2, '0'); }
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// =========================================================
+// ===== WebRTC / ビデオ通話 =====
+// =========================================================
+
+const STUN = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+  ]
+};
+
+const ws = {
+  socket: null,
+  peers: {},          // peerId -> RTCPeerConnection
+  localStream: null,
+  roomId: null,
+  inCall: false,
+  audioMuted: false,
+  videoMuted: false,
+};
+
+// ===== Socket.io 初期化 =====
+function initSocket() {
+  ws.socket = io();
+
+  ws.socket.on('connect', () => {
+    setDot('call', 'ok');
+    $('label-call').textContent = '通話：接続OK';
+  });
+
+  ws.socket.on('disconnect', () => {
+    setDot('call', 'warn');
+    $('label-call').textContent = '通話：切断（再接続中）';
+    // 録音は独立しているので影響なし
+  });
+
+  ws.socket.on('connect_error', () => {
+    setDot('call', 'warn');
+    $('label-call').textContent = '通話：接続エラー';
+  });
+
+  // 参加時点での既存メンバーリスト → こちらからofferを送る
+  ws.socket.on('room-peers', async (peers) => {
+    for (const peerId of peers) {
+      await createPeer(peerId, true);
+    }
+    updateParticipants();
+  });
+
+  // 自分が参加した後に来た新規メンバー → 向こうからofferが来る
+  ws.socket.on('peer-joined', (peerId) => {
+    console.log(`[WebRTC] 新規参加: ${peerId.slice(0,8)}`);
+    // offer が 'offer' イベントで届くまで待機
+    updateParticipants();
+  });
+
+  // Offer 受信 → answer を返す
+  ws.socket.on('offer', async ({ from, offer }) => {
+    let pc = ws.peers[from];
+    if (!pc) pc = await createPeer(from, false);
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.socket.emit('answer', { to: from, answer });
+    } catch (e) {
+      console.error('[WebRTC] offer処理エラー:', e);
+    }
+  });
+
+  // Answer 受信
+  ws.socket.on('answer', async ({ from, answer }) => {
+    const pc = ws.peers[from];
+    if (pc) {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      } catch (e) {
+        console.error('[WebRTC] answer処理エラー:', e);
+      }
+    }
+  });
+
+  // ICE candidate 受信
+  ws.socket.on('ice-candidate', async ({ from, candidate }) => {
+    const pc = ws.peers[from];
+    if (pc && candidate) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        // 無視（通常の動作内）
+      }
+    }
+  });
+
+  // 参加者退出
+  ws.socket.on('peer-left', (peerId) => {
+    removePeer(peerId);
+    updateParticipants();
+    showToast('参加者が退出しました', 'info');
+  });
+}
+
+// ===== PeerConnection 作成 =====
+async function createPeer(peerId, isInitiator) {
+  const pc = new RTCPeerConnection(STUN);
+  ws.peers[peerId] = pc;
+
+  // ローカルトラックを追加
+  if (ws.localStream) {
+    ws.localStream.getTracks().forEach(track => {
+      pc.addTrack(track, ws.localStream);
+    });
+  }
+
+  // リモート映像受信
+  pc.ontrack = (event) => {
+    addRemoteVideo(peerId, event.streams[0]);
+    updateParticipants();
+  };
+
+  // ICE candidate 送信
+  pc.onicecandidate = ({ candidate }) => {
+    if (candidate && ws.socket) {
+      ws.socket.emit('ice-candidate', { to: peerId, candidate });
+    }
+  };
+
+  // 接続状態監視
+  pc.onconnectionstatechange = () => {
+    const state = pc.connectionState;
+    console.log(`[WebRTC] ${peerId.slice(0,8)} → ${state}`);
+    if (state === 'failed') {
+      // ICE再起動を試みる
+      try { pc.restartIce(); } catch(e) {}
+    }
+  };
+
+  if (isInitiator) {
+    try {
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+      await pc.setLocalDescription(offer);
+      ws.socket.emit('offer', { to: peerId, offer });
+    } catch (e) {
+      console.error('[WebRTC] offer作成エラー:', e);
+    }
+  }
+
+  return pc;
+}
+
+// ===== リモート映像追加 =====
+function addRemoteVideo(peerId, stream) {
+  const existing = $(`video-${peerId}`);
+  if (existing) {
+    existing.srcObject = stream;
+    return;
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'video-wrapper remote-wrapper';
+  wrapper.id = `wrapper-${peerId}`;
+
+  const video = document.createElement('video');
+  video.id = `video-${peerId}`;
+  video.autoplay = true;
+  video.playsinline = true;
+  video.srcObject = stream;
+
+  const label = document.createElement('div');
+  label.className = 'video-label';
+  label.textContent = `参加者 ${peerId.slice(0, 6)}`;
+
+  wrapper.appendChild(video);
+  wrapper.appendChild(label);
+  $('video-grid').appendChild(wrapper);
+}
+
+// ===== PeerConnection 削除 =====
+function removePeer(peerId) {
+  const pc = ws.peers[peerId];
+  if (pc) { pc.close(); delete ws.peers[peerId]; }
+
+  const wrapper = $(`wrapper-${peerId}`);
+  if (wrapper) wrapper.remove();
+}
+
+// ===== 参加者数更新 =====
+function updateParticipants() {
+  const count = Object.keys(ws.peers).length + 1;
+  $('call-participants').textContent = `参加者：${count}人`;
+}
+
+// ===== 通話参加 =====
+async function joinCall() {
+  const roomId = $('room-input').value.trim().toUpperCase();
+  if (!roomId) {
+    showToast('ルームIDを入力してください', 'error');
+    return;
+  }
+
+  try {
+    $('btn-join-call').disabled = true;
+    $('btn-join-call').textContent = '接続中...';
+
+    // カメラ+マイク取得（カメラなければ音声のみ）
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+      });
+    } catch {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        showToast('カメラが利用できないため音声のみで参加します', 'info');
+      } catch (e) {
+        throw new Error('マイク/カメラへのアクセスが拒否されました');
+      }
+    }
+
+    ws.localStream = stream;
+    ws.roomId = roomId;
+    ws.inCall = true;
+
+    // ローカル映像表示（videoTrackがある場合のみ）
+    const localVid = $('local-video');
+    localVid.srcObject = stream;
+
+    // カメラがなければローカルビデオにプレースホルダー
+    if (!stream.getVideoTracks().length) {
+      $('local-wrapper').innerHTML = `
+        <div class="video-placeholder">
+          <div class="avatar">🎙️</div>
+          <span>音声のみ</span>
+        </div>
+        <div class="video-label">自分</div>
+      `;
+    }
+
+    // ルーム参加
+    ws.socket.emit('join-room', roomId);
+
+    // 招待URL生成
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', roomId);
+    history.pushState({}, '', url);
+    $('invite-url-text').textContent = url.toString();
+    $('call-room-label').textContent = `ルームID: ${roomId}`;
+
+    // UI切替
+    $('call-setup').style.display = 'none';
+    $('call-active').style.display = 'block';
+
+    setDot('call', 'call-active');
+    $('label-call').textContent = `通話中：${roomId}`;
+
+    updateParticipants();
+    showToast(`ルーム「${roomId}」に参加しました`, 'success');
+
+  } catch (err) {
+    $('btn-join-call').disabled = false;
+    $('btn-join-call').textContent = '📹 通話に参加';
+    showToast(`エラー: ${err.message}`, 'error');
+  }
+}
+
+// ===== 通話終了 =====
+function leaveCall() {
+  // 全PeerConnection を閉じる
+  Object.keys(ws.peers).forEach(removePeer);
+  ws.peers = {};
+
+  // ローカルストリーム停止
+  if (ws.localStream) {
+    ws.localStream.getTracks().forEach(t => t.stop());
+    ws.localStream = null;
+  }
+
+  // リモート映像削除
+  document.querySelectorAll('.remote-wrapper').forEach(el => el.remove());
+
+  // ローカルビデオを元に戻す
+  $('local-wrapper').innerHTML = `
+    <video id="local-video" autoplay muted playsinline></video>
+    <div class="video-label">自分</div>
+  `;
+
+  // サーバーへ退出通知
+  if (ws.socket) ws.socket.emit('leave-room');
+
+  ws.roomId = null;
+  ws.inCall = false;
+  ws.audioMuted = false;
+  ws.videoMuted = false;
+
+  // URLからroomを除去
+  const url = new URL(window.location.href);
+  url.searchParams.delete('room');
+  history.pushState({}, '', url);
+
+  // UI切替
+  $('call-setup').style.display = 'block';
+  $('call-active').style.display = 'none';
+  $('btn-join-call').disabled = false;
+  $('btn-join-call').textContent = '📹 通話に参加';
+
+  // ミュートボタンをリセット
+  $('btn-mute-audio').textContent = '🎙️ ミュート';
+  $('btn-mute-audio').classList.remove('muted');
+  $('btn-mute-video').textContent = '📹 カメラOFF';
+  $('btn-mute-video').classList.remove('muted');
+
+  setDot('call', 'ok');
+  $('label-call').textContent = '通話：接続OK';
+  showToast('通話を終了しました', 'info');
+}
+
+// ===== マイクトグル =====
+function toggleAudio() {
+  if (!ws.localStream) return;
+  ws.audioMuted = !ws.audioMuted;
+  ws.localStream.getAudioTracks().forEach(t => { t.enabled = !ws.audioMuted; });
+  const btn = $('btn-mute-audio');
+  btn.textContent = ws.audioMuted ? '🔇 ミュート中' : '🎙️ ミュート';
+  btn.classList.toggle('muted', ws.audioMuted);
+}
+
+// ===== カメラトグル =====
+function toggleVideo() {
+  if (!ws.localStream) return;
+  ws.videoMuted = !ws.videoMuted;
+  ws.localStream.getVideoTracks().forEach(t => { t.enabled = !ws.videoMuted; });
+  const btn = $('btn-mute-video');
+  btn.textContent = ws.videoMuted ? '📵 カメラ停止中' : '📹 カメラOFF';
+  btn.classList.toggle('muted', ws.videoMuted);
+}
+
+// ===== ランダムルームID =====
+function generateRoomId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+// ===== URL からルームID を取得して自動入力 =====
+function loadRoomFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const room = params.get('room');
+  if (room) {
+    $('room-input').value = room.toUpperCase();
+    // 少し待ってから自動参加
+    setTimeout(() => {
+      showToast(`ルーム「${room}」の招待URLです。参加ボタンを押してください`, 'info');
+    }, 800);
+  } else {
+    $('room-input').value = generateRoomId();
+  }
+}
+
+// ===== イベント =====
+$('btn-join-call').addEventListener('click', joinCall);
+$('btn-leave-call').addEventListener('click', leaveCall);
+$('btn-mute-audio').addEventListener('click', toggleAudio);
+$('btn-mute-video').addEventListener('click', toggleVideo);
+$('btn-random-room').addEventListener('click', () => {
+  $('room-input').value = generateRoomId();
+});
+$('btn-copy-url').addEventListener('click', () => {
+  navigator.clipboard.writeText($('invite-url-text').textContent)
+    .then(() => showToast('URLをコピーしました', 'success'))
+    .catch(() => showToast('コピーに失敗しました', 'error'));
+});
+$('room-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') joinCall();
+});
+
+// =========================================================
+// ===== 録音機能（ステップ1・独立動作）=====
+// =========================================================
+
+const state = {
+  mediaRecorder: null,
+  stream: null,
+  chunks: [],
+  isRecording: false,
+  startTime: null,
+  timerInterval: null,
+  chunkInterval: null,
+  chunkCount: 0,
+  localFiles: [],
+  mimeType: '',
+};
+
+const btnStart   = $('btn-start');
+const btnStop    = $('btn-stop');
+const micSelect  = $('mic-select');
+const recIndicator = $('rec-indicator');
+const recText    = $('rec-status-text');
+const recTimer   = $('rec-timer');
+const chunkLog   = $('chunk-log');
+const fileList   = $('file-list');
+
+async function loadMics() {
+  try {
+    const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+    tmp.getTracks().forEach(t => t.stop());
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const mics = devices.filter(d => d.kind === 'audioinput');
+    micSelect.innerHTML = '';
+    mics.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = m.deviceId;
+      opt.textContent = m.label || `マイク ${i + 1}`;
+      micSelect.appendChild(opt);
+    });
+    setDot('mic', 'ok');
+    $('label-mic').textContent = `マイク：${mics.length}台検出`;
+  } catch {
+    setDot('mic', 'warn');
+    $('label-mic').textContent = 'マイク：アクセス拒否';
+    showToast('マイクへのアクセスを許可してください', 'error');
+  }
+}
+
+function getBestMimeType() {
+  const types = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+  for (const t of types) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return '';
+}
+
+async function startRecording() {
+  try {
+    const deviceId = micSelect.value;
+    const constraints = {
+      audio: deviceId
+        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+        : { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+    };
+    state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    state.mimeType = getBestMimeType();
+    state.chunks = [];
+    state.chunkCount = 0;
+
+    state.mediaRecorder = new MediaRecorder(state.stream, {
+      mimeType: state.mimeType || undefined,
+      audioBitsPerSecond: 128000,
+    });
+    state.mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) state.chunks.push(e.data);
+    };
+    state.mediaRecorder.onstop = finalizeRecording;
+    state.mediaRecorder.start(1000);
+    state.isRecording = true;
+    state.startTime = Date.now();
+
+    setRecordingUI(true);
+    startTimer();
+    state.chunkInterval = setInterval(saveChunk, 30000);
+    setDot('rec', 'active');
+    $('label-rec').textContent = '録音：収録中';
+    showToast('録音を開始しました', 'success');
+  } catch (err) {
+    showToast(`録音開始エラー: ${err.message}`, 'error');
+  }
+}
+
+function stopRecording() {
+  if (!state.mediaRecorder || state.mediaRecorder.state === 'inactive') return;
+  clearInterval(state.chunkInterval);
+  clearInterval(state.timerInterval);
+  state.mediaRecorder.stop();
+  state.stream?.getTracks().forEach(t => t.stop());
+  state.isRecording = false;
+  setRecordingUI(false);
+  setDot('rec', '');
+  $('label-rec').textContent = '録音：停止中';
+}
+
+function finalizeRecording() {
+  if (state.chunks.length === 0) return;
+  const ext = state.mimeType.includes('ogg') ? 'ogg' : state.mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(state.chunks, { type: state.mimeType || 'audio/webm' });
+  const ts = formatDatetime(new Date());
+  addLocalFile(blob, `録音_${ts}.${ext}`);
+  state.chunks = [];
+  showToast('録音を保存しました', 'success');
+}
+
+function saveChunk() {
+  if (state.chunks.length === 0) return;
+  state.chunkCount++;
+  const snap = [...state.chunks];
+  state.chunks = [];
+  const ext = state.mimeType.includes('ogg') ? 'ogg' : state.mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(snap, { type: state.mimeType || 'audio/webm' });
+  const ts = formatDatetime(new Date());
+  const filename = `録音_${ts}_チャンク${state.chunkCount}.${ext}`;
+  addLocalFile(blob, filename);
+  uploadToServer(blob, filename);
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="time">${formatTime(new Date())}</span> チャンク${state.chunkCount}を自動保存 (${formatSize(blob.size)})`;
+  chunkLog.insertBefore(entry, chunkLog.firstChild);
+}
+
+function addLocalFile(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  state.localFiles.unshift({ blob, url, filename, size: blob.size, date: new Date() });
+  renderFileList();
+}
+
+function renderFileList() {
+  if (state.localFiles.length === 0) {
+    fileList.innerHTML = '<div class="empty-state">録音を開始すると、ここにファイルが表示されます</div>';
+    return;
+  }
+  fileList.innerHTML = '';
+  state.localFiles.forEach((f, i) => {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.innerHTML = `
+      <div class="file-info">
+        <div class="file-name">${f.filename}</div>
+        <div class="file-meta">${formatDatetimeDisplay(f.date)} ・ ${formatSize(f.size)}</div>
+        <audio controls src="${f.url}"></audio>
+      </div>
+      <div class="file-actions">
+        <button class="btn-small btn-dl" onclick="downloadFile(${i})">⬇ 保存</button>
+        <button class="btn-small btn-dl" style="background:#444" onclick="uploadFile(${i})">☁ 送信</button>
+      </div>
+    `;
+    fileList.appendChild(item);
+  });
+}
+
+function downloadFile(index) {
+  const f = state.localFiles[index];
+  const a = document.createElement('a');
+  a.href = f.url; a.download = f.filename; a.click();
+}
+function uploadFile(index) {
+  const f = state.localFiles[index];
+  uploadToServer(f.blob, f.filename);
+}
+
+async function uploadToServer(blob, filename) {
+  const progressWrap = $('upload-progress');
+  const progressBar  = $('progress-bar');
+  try {
+    progressWrap.classList.add('visible');
+    progressBar.style.width = '10%';
+    const formData = new FormData();
+    formData.append('audio', blob, filename);
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        progressBar.style.width = Math.round((e.loaded / e.total) * 90 + 10) + '%';
+      }
+    };
+    await new Promise((resolve, reject) => {
+      xhr.open('POST', '/upload');
+      xhr.onload = () => xhr.status === 200 ? resolve() : reject(new Error(`HTTP ${xhr.status}`));
+      xhr.onerror = () => reject(new Error('ネットワークエラー'));
+      xhr.send(formData);
+    });
+    progressBar.style.width = '100%';
+    setTimeout(() => { progressWrap.classList.remove('visible'); progressBar.style.width = '0'; }, 800);
+    showToast(`「${filename}」をサーバーに送信しました`, 'success');
+    setDot('server', 'ok');
+    $('label-server').textContent = 'サーバー：接続OK';
+  } catch (err) {
+    progressWrap.classList.remove('visible');
+    progressBar.style.width = '0';
+    console.warn('アップロード失敗（ローカル保存は継続）:', err.message);
+    setDot('server', 'warn');
+    $('label-server').textContent = 'サーバー：送信失敗（録音継続中）';
+  }
+}
+
+function startTimer() {
+  recTimer.style.display = 'inline';
+  state.timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    recTimer.textContent = `${m}:${s}`;
+  }, 500);
+}
+
+function setRecordingUI(recording) {
+  btnStart.disabled = recording;
+  btnStop.disabled  = !recording;
+  micSelect.disabled = recording;
+  recIndicator.className = recording ? 'recording' : 'ready';
+  recText.textContent = recording ? '● 録音中' : '録音停止中';
+  if (!recording) { recTimer.style.display = 'none'; recTimer.textContent = '00:00'; }
+}
+
+async function checkServer() {
+  try {
+    const res = await fetch('/recordings', { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      setDot('server', 'ok');
+      $('label-server').textContent = 'サーバー：接続OK';
+    }
+  } catch {
+    setDot('server', 'warn');
+    $('label-server').textContent = 'サーバー：オフライン（ローカル録音のみ）';
+  }
+}
+
+btnStart.addEventListener('click', startRecording);
+btnStop.addEventListener('click', stopRecording);
+window.addEventListener('beforeunload', (e) => {
+  if (state.isRecording) {
+    e.preventDefault();
+    e.returnValue = '録音中です。ページを離れると録音が失われます。';
+  }
+});
+
+// =========================================================
+// ===== 初期化 =====
+// =========================================================
+(async () => {
+  loadRoomFromUrl();
+  initSocket();
+  await loadMics();
+  await checkServer();
+})();
+</script>
+</body>
+</html>
