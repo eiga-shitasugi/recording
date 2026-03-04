@@ -1473,13 +1473,29 @@ function stopRecording() {
 
 function finalizeRecording() {
   if (state.chunks.length === 0) return;
-  const ext = state.mimeType.includes('ogg') ? 'ogg' : state.mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const now = new Date();
+  const datePart = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
+  const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  state.chunkCount++;
+  const partNum = String(state.chunkCount).padStart(3, '0');
+  const filename = `surecast-${datePart}-${timePart}-part${partNum}.webm`;
   const blob = new Blob(state.chunks, { type: state.mimeType || 'audio/webm' });
-  const ts = formatDatetime(new Date());
-  const filename = `録音_${ts}.${ext}`;
+
+  // 自動ダウンロード
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
   addLocalFile(blob, filename, true);
   state.chunks = [];
   uploadToServer(blob, filename);
+  showToast(`チャンク${partNum}を保存しました（録音終了）`, 'success');
 }
 
 function saveChunk() {
@@ -1487,15 +1503,30 @@ function saveChunk() {
   state.chunkCount++;
   const snap = [...state.chunks];
   state.chunks = [];
-  const ext = state.mimeType.includes('ogg') ? 'ogg' : state.mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const now = new Date();
+  const datePart = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
+  const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const partNum = String(state.chunkCount).padStart(3, '0');
+  const filename = `surecast-${datePart}-${timePart}-part${partNum}.webm`;
   const blob = new Blob(snap, { type: state.mimeType || 'audio/webm' });
-  const ts = formatDatetime(new Date());
-  const filename = `録音_${ts}_チャンク${state.chunkCount}.${ext}`;
+
+  // 自動ダウンロード
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
   addLocalFile(blob, filename, false);
   uploadToServer(blob, filename);
+  showToast(`チャンク${partNum}を保存しました`, 'success');
   const entry = document.createElement('div');
   entry.className = 'log-entry';
-  entry.innerHTML = `<span class="time">${formatTime(new Date())}</span> チャンク${state.chunkCount}を自動保存 (${formatSize(blob.size)})`;
+  entry.innerHTML = `<span class="time">${formatTime(now)}</span> ${filename} を保存 (${formatSize(blob.size)})`;
   chunkLog.insertBefore(entry, chunkLog.firstChild);
 }
 
