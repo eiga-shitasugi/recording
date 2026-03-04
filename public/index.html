@@ -40,13 +40,14 @@
     header {
       background: #0f0f0f;
       border-bottom: 1px solid var(--border);
-      padding: 20px 24px;
+      padding: 16px 24px;
       display: flex;
       align-items: center;
       gap: 12px;
+      overflow: hidden;
     }
     .header-logo {
-      height: 80px;
+      height: 50px;
       width: auto;
       display: block;
     }
@@ -554,6 +555,10 @@
     }
 
     /* ===== レスポンシブ ===== */
+    @media (max-width: 768px) {
+      header { padding: 10px 16px; }
+      .header-logo { height: 36px; }
+    }
     @media (max-width: 600px) {
       main { padding: 10px; gap: 14px; }
       .card { padding: 14px; }
