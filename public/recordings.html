@@ -3,22 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>クラウド録音ファイル一覧</title>
+  <title>SureCast - クラウド録音ファイル一覧</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0f0f13;
-      --surface: #1a1a24;
-      --surface2: #242433;
-      --border: #2e2e42;
-      --accent: #6c63ff;
-      --accent-hover: #8b84ff;
-      --green: #22cc66;
-      --red: #ff4444;
-      --yellow: #ffaa00;
-      --text: #e8e8f0;
-      --text-dim: #888899;
+      --bg: #EDE8D6;
+      --surface: #F4F0E4;
+      --surface2: #E6E0CC;
+      --border: #CCC5AE;
+      --accent: #2B2B2B;
+      --accent-hover: #4A4A4A;
+      --green: #2A8C54;
+      --red: #C8362E;
+      --yellow: #B07820;
+      --text: #2B2B2B;
+      --text-dim: #7A7060;
       --radius: 12px;
     }
 
@@ -37,7 +37,12 @@
       align-items: center;
       gap: 12px;
     }
-    header h1 { font-size: 1.1rem; font-weight: 700; }
+    .header-logo {
+      height: 36px;
+      width: auto;
+      display: block;
+      mix-blend-mode: multiply;
+    }
     header a {
       margin-left: auto;
       font-size: 0.82rem;
@@ -49,7 +54,7 @@
       transition: background 0.15s;
       white-space: nowrap;
     }
-    header a:hover { background: rgba(108,99,255,0.15); }
+    header a:hover { background: rgba(43,43,43,0.08); }
 
     main {
       max-width: 800px;
@@ -192,8 +197,7 @@
 <body>
 
 <header>
-  <span>☁️</span>
-  <h1>クラウド録音ファイル一覧</h1>
+  <img src="/images/surecast-logo.png" alt="SureCast" class="header-logo">
   <a href="/">← 収録ページへ戻る</a>
 </header>
 
