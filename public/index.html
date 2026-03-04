@@ -82,11 +82,12 @@
       background: var(--text-dim);
       flex-shrink: 0;
     }
-    .dot.active     { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
-    .dot.ok         { background: var(--green);  animation: none; }
-    .dot.warn       { background: var(--yellow); animation: none; }
-    .dot.uploading  { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
-    .dot.call-active{ background: var(--teal);   animation: pulse 1s ease-in-out infinite; }
+    .dot.active      { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+    .dot.ok          { background: var(--green);  animation: none; }
+    .dot.warn        { background: var(--yellow); animation: none; }
+    .dot.uploading   { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+    .dot.call-active { background: var(--teal);   animation: pulse 1s ease-in-out infinite; }
+    .dot.srv-rec     { background: var(--red);    animation: pulse 0.8s ease-in-out infinite; }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -145,8 +146,6 @@
     .btn-record:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
     .btn-stop { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
     .btn-stop:not(:disabled):hover { background: var(--border); transform: translateY(-1px); }
-    .btn-save { background: var(--accent); color: #000; }
-    .btn-save:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
     .btn-teal { background: var(--accent); color: #000; font-weight: 800; }
     .btn-teal:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
     .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
@@ -265,56 +264,114 @@
     #call-controls .btn { min-width: 100px; padding: 11px 12px; font-size: 0.85rem; }
     .btn.muted { opacity: 0.55; }
 
-    /* ===== 自動保存ログ ===== */
-    #chunk-log {
-      max-height: 100px;
-      overflow-y: auto;
-      font-size: 0.8rem;
+    /* ===== サーバー録音バナー ===== */
+    #srv-rec-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.4);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+    }
+    #srv-rec-banner.visible { display: flex; }
+    .srv-rec-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--red); flex-shrink: 0;
+      animation: pulse 0.8s ease-in-out infinite;
+    }
+
+    /* ===== VUメーター ===== */
+    .vu-container {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .vu-label {
+      font-size: 0.78rem;
       color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .vu-label .vu-db { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .vu-bar-wrap {
+      height: 16px;
+      background: #1a1a1a;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    /* 色ゾーン: 0-80%=暗緑(適正以下), 80-90%=明緑(適正), 90-97%=オレンジ(警告), 97-100%=赤(クリッピング) */
+    .vu-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 4px;
+      transition: width 0.06s linear;
+      background: linear-gradient(
+        to right,
+        #15803d 0%, #15803d 80%,
+        #22c55e 80%, #22c55e 90%,
+        #f59e0b 90%, #f59e0b 97%,
+        #ef4444 97%, #ef4444 100%
+      );
+    }
+    .vu-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.60rem;
+      color: #555;
+      margin-top: 3px;
+    }
+    .vu-zone-labels {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+      font-size: 0.68rem;
+    }
+    .vu-zone-label {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .vu-zone-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    #vu-message {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      min-height: 18px;
+      font-weight: 600;
+    }
+
+    /* ===== 変換ステータス ===== */
+    .convert-status-area {
+      min-height: 40px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      margin-top: 14px;
+      gap: 8px;
     }
-    .log-entry {
-      display: flex; align-items: center; gap: 6px;
-      padding: 3px 0; border-bottom: 1px solid var(--border);
+    .convert-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
     }
-    .log-entry .time { color: var(--accent); font-variant-numeric: tabular-nums; }
-
-    /* ===== 録音ファイル一覧 ===== */
-    #file-list {
-      display: flex; flex-direction: column;
-      gap: 8px; max-height: 320px; overflow-y: auto;
-    }
-    .file-item {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 8px; padding: 12px 14px;
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    }
-    .file-item.new-file { border-color: var(--green); animation: file-highlight 2s ease-out forwards; }
-    @keyframes file-highlight {
-      0%   { background: rgba(34,204,102,0.15); border-color: var(--green); }
-      100% { background: var(--surface2);       border-color: var(--border); }
-    }
-    .file-info { flex: 1; min-width: 0; }
-    .file-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .file-meta { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
-    .file-actions { display: flex; gap: 7px; flex-shrink: 0; }
-    .btn-small {
-      padding: 6px 12px; border: none; border-radius: 6px;
-      font-size: 0.8rem; font-weight: 600;
-      cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
-    }
-    .btn-dl { background: var(--accent); color: #000; }
-    .btn-dl:hover { background: var(--accent-hover); }
-    .btn-dl-now { background: var(--green); color: #000; }
-    .btn-dl-now:hover { background: #1aaa55; }
-    audio {
-      width: 100%; height: 34px; margin-top: 7px;
-      border-radius: 6px; background: var(--surface);
-    }
-    audio::-webkit-media-controls-panel { background: var(--surface2); }
+    .convert-item.converting { border-color: var(--accent); }
+    .convert-item.done       { border-color: var(--green); }
+    .convert-item.error      { border-color: var(--red); }
+    .convert-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .convert-text { flex: 1; min-width: 0; }
+    .convert-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .convert-sub { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
 
     /* クラウドファイル一覧へのリンク */
     .cloud-link-bar {
@@ -331,18 +388,7 @@
     }
     .cloud-link-bar a:hover { background: rgba(217,119,6,0.15); }
 
-    /* ===== アップロードステータス ===== */
-    #upload-status-area {
-      margin-top: 12px; padding: 11px 14px;
-      border-radius: 8px; border: 1px solid var(--border);
-      background: var(--surface2); display: none;
-    }
-    #upload-status-area.visible { display: block; }
-    #upload-status-msg { font-size: 0.86rem; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .progress-wrap { height: 5px; background: var(--border); border-radius: 999px; overflow: hidden; }
-    .progress-bar  { height: 100%; background: var(--accent); width: 0; transition: width 0.3s; border-radius: 999px; }
-
-    .empty-state { text-align: center; padding: 28px; color: var(--text-dim); font-size: 0.88rem; }
+    .empty-state { text-align: center; padding: 24px; color: var(--text-dim); font-size: 0.88rem; }
 
     /* ===== クラッシュリカバリーバナー ===== */
     #recovery-banner {
@@ -386,7 +432,6 @@
     #toast.info    { border-color: var(--accent); color: var(--accent); }
 
     /* ===== 台本エリア ===== */
-    /* エピソードバー */
     #episode-bar {
       display: flex;
       align-items: center;
@@ -537,8 +582,8 @@
     }
     .rec-stat-dot.active   { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .rec-stat-dot.ok       { background: var(--green);  }
-    .rec-stat-dot.uploading{ background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .rec-stat-dot.warn     { background: var(--yellow); }
+    .rec-stat-dot.srv-rec  { background: var(--red);    animation: pulse 0.8s ease-in-out infinite; }
 
     #rec-footer-center {
       display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -608,15 +653,15 @@
 
 <header>
   <img src="/images/surecast-logo-2-white.png" alt="SureCast" class="header-logo">
-  <a href="/recordings.html" class="header-link">☁ クラウド録音一覧</a>
+  <a href="/recordings.html" class="header-link">☁ 録音ファイル一覧</a>
 </header>
 
 <div id="recovery-banner">
   <div>
-    <div class="recovery-msg">⚠️ 前回の録音が復元できます。ダウンロードしますか？</div>
+    <div class="recovery-msg">⚠️ 前回の録音が復元できます。FLACに変換・保存しますか？</div>
     <div class="recovery-sub" id="recovery-sub"></div>
   </div>
-  <button class="btn-recovery-dl" id="btn-recovery-dl">⬇ ダウンロード</button>
+  <button class="btn-recovery-dl" id="btn-recovery-dl">🔄 変換・保存</button>
   <button class="btn-recovery-del" id="btn-recovery-del">🗑 削除</button>
 </div>
 
@@ -630,8 +675,8 @@
     <span id="label-local-rec">ローカル録音：停止中</span>
   </div>
   <div class="status-item">
-    <div class="dot" id="dot-cloud"></div>
-    <span id="label-cloud">クラウド：待機中</span>
+    <div class="dot" id="dot-srv-rec"></div>
+    <span id="label-srv-rec">サーバー録音：待機中</span>
   </div>
   <div class="status-item">
     <div class="dot" id="dot-call"></div>
@@ -648,6 +693,10 @@
     <!-- 参加前 -->
     <div id="call-setup">
       <div class="form-row">
+        <label for="username-input">ユーザー名（録音ファイル名・参加者表示に使用）</label>
+        <input type="text" id="username-input" placeholder="例：Taro（未入力の場合はランダム）" maxlength="20">
+      </div>
+      <div class="form-row">
         <label>ルームID（英数字・自動生成されます）</label>
         <div class="room-input-row">
           <input type="text" id="room-input" placeholder="例：ABC123" maxlength="12">
@@ -655,7 +704,7 @@
         </div>
       </div>
       <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:14px;">
-        同じルームIDを入力するだけで通話できます。
+        同じルームIDを入力するだけで通話できます。参加と同時にサーバー側録音が自動開始されます。
       </p>
       <div class="btn-row">
         <button class="btn btn-teal" id="btn-join-call">📹 通話に参加</button>
@@ -664,6 +713,11 @@
 
     <!-- 通話中 -->
     <div id="call-active" style="display:none">
+      <div id="srv-rec-banner">
+        <div class="srv-rec-dot"></div>
+        <span id="srv-rec-label">サーバー側録音中（自動）— 退出時にFLACで保存されます</span>
+      </div>
+
       <div id="invite-bar">
         <span class="invite-label">招待URL</span>
         <span id="invite-url-text"></span>
@@ -678,7 +732,7 @@
       <div id="video-grid">
         <div class="video-wrapper local-wrapper" id="local-wrapper">
           <video id="local-video" autoplay muted playsinline></video>
-          <div class="video-label">自分</div>
+          <div class="video-label" id="local-video-label">自分</div>
         </div>
       </div>
 
@@ -702,28 +756,46 @@
     </div>
 
     <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0;">
-      録音ボタンは画面下のバーから操作できます。ローカルとクラウドへの録音を同時に開始・停止します。
+      録音ボタンは画面下から操作。停止後に自動でFLAC変換・サーバー保存されます。
     </p>
 
-    <div id="chunk-log"></div>
-
-    <div id="upload-status-area">
-      <div id="upload-status-msg"></div>
-      <div class="progress-wrap">
-        <div class="progress-bar" id="progress-bar"></div>
+    <!-- VUメーター -->
+    <div class="vu-container" id="vu-container">
+      <div class="vu-label">
+        <span>🎚️ 音量レベル</span>
+        <span class="vu-db" id="vu-db-label">— dB</span>
       </div>
+      <div class="vu-bar-wrap">
+        <div class="vu-bar" id="vu-bar"></div>
+      </div>
+      <div class="vu-ticks">
+        <span>-60</span>
+        <span>-48</span>
+        <span>-36</span>
+        <span>-24</span>
+        <span>-12</span>
+        <span>-6</span>
+        <span>0dB</span>
+      </div>
+      <div class="vu-zone-labels">
+        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#15803d"></div><span style="color:#a0a0a0">適正以下</span></div>
+        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#22c55e"></div><span style="color:#a0a0a0">適正（-12〜-6dB）</span></div>
+        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#f59e0b"></div><span style="color:#a0a0a0">警告</span></div>
+        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#ef4444"></div><span style="color:#a0a0a0">クリッピング</span></div>
+      </div>
+      <div id="vu-message"></div>
     </div>
   </div>
 
-  <!-- ===== 録音ファイル一覧 ===== -->
+  <!-- ===== 録音保存状況 ===== -->
   <div class="card" id="files-card">
-    <div class="card-title">📁 ローカル録音ファイル</div>
+    <div class="card-title">📁 録音保存状況</div>
     <div class="cloud-link-bar">
-      <span style="font-size:0.82rem;color:var(--text-dim);">サーバー保存ファイルはこちら</span>
-      <a href="/recordings.html" target="_blank">☁ クラウド録音一覧を開く</a>
+      <span style="font-size:0.82rem;color:var(--text-dim);">保存済みFLACファイルはこちら</span>
+      <a href="/recordings.html" target="_blank">☁ 録音ファイル一覧を開く</a>
     </div>
-    <div id="file-list">
-      <div class="empty-state">録音を開始すると、ここにファイルが表示されます</div>
+    <div id="convert-status-list" class="convert-status-area">
+      <div class="empty-state">録音を停止すると自動的にFLACに変換・保存されます</div>
     </div>
   </div>
 
@@ -762,8 +834,8 @@
       <span id="rec-label-local">ローカル録音：停止中</span>
     </div>
     <div class="rec-stat-row">
-      <div class="rec-stat-dot" id="rec-dot-cloud"></div>
-      <span id="rec-label-cloud">クラウド：待機中</span>
+      <div class="rec-stat-dot" id="rec-dot-srv"></div>
+      <span id="rec-label-srv">サーバー録音：待機中</span>
     </div>
   </div>
 
@@ -773,7 +845,7 @@
 
   <div id="rec-footer-btns">
     <button class="btn btn-record" id="btn-start">⏺ 録音開始</button>
-    <button class="btn btn-stop" id="btn-stop" disabled>⏹ 停止・保存</button>
+    <button class="btn btn-stop" id="btn-stop" disabled>⏹ 停止・変換</button>
   </div>
 </div>
 
@@ -802,19 +874,41 @@ function showToast(msg, type = 'info') {
 }
 
 // ===== フォーマット =====
-function formatDatetime(d) {
-  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-}
+function pad(n) { return String(n).padStart(2, '0'); }
 function formatDatetimeDisplay(d) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
-function formatTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
-function pad(n) { return String(n).padStart(2, '0'); }
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+// ===== ユーザー名管理 =====
+const LS_USERNAME_KEY = 'surecast-username';
+
+function generateRandomName() {
+  const adj = ['Swift', 'Calm', 'Bold', 'Deep', 'Pure', 'Keen'];
+  const noun = ['Wave', 'Cast', 'Mic', 'Voice', 'Air', 'Studio'];
+  return adj[Math.floor(Math.random() * adj.length)] + noun[Math.floor(Math.random() * noun.length)];
+}
+
+function getUserName() {
+  const inputVal = $('username-input') ? $('username-input').value.trim() : '';
+  return inputVal || localStorage.getItem(LS_USERNAME_KEY) || generateRandomName();
+}
+
+function loadUsername() {
+  const saved = localStorage.getItem(LS_USERNAME_KEY);
+  if (saved && $('username-input')) $('username-input').value = saved;
+}
+
+function saveUsername(name) {
+  if (name) localStorage.setItem(LS_USERNAME_KEY, name);
+}
+
+// ===== ピアのユーザー名管理 =====
+const peerUsernames = {}; // peerId -> username
 
 // =========================================================
 // ===== WebRTC / ビデオ通話 =====
@@ -859,14 +953,19 @@ function initSocket() {
   });
 
   ws.socket.on('room-peers', async (peers) => {
-    for (const peerId of peers) {
+    for (const peerInfo of peers) {
+      const peerId   = typeof peerInfo === 'string' ? peerInfo : peerInfo.peerId;
+      const username = typeof peerInfo === 'string' ? '' : (peerInfo.username || '');
+      if (peerId && username) peerUsernames[peerId] = username;
       await createPeer(peerId, true);
     }
     updateParticipants();
   });
 
-  ws.socket.on('peer-joined', (peerId) => {
-    console.log(`[WebRTC] 新規参加: ${peerId.slice(0,8)}`);
+  ws.socket.on('peer-joined', (data) => {
+    const peerId   = typeof data === 'string' ? data : data.peerId;
+    const username = typeof data === 'string' ? '' : (data.username || '');
+    if (peerId && username) peerUsernames[peerId] = username;
     updateParticipants();
   });
 
@@ -904,6 +1003,7 @@ function initSocket() {
   });
 
   ws.socket.on('peer-left', (peerId) => {
+    delete peerUsernames[peerId];
     removePeer(peerId);
     typingPeers.delete(peerId);
     updateTypingIndicator();
@@ -921,7 +1021,6 @@ function initSocket() {
     const ep = episodeState.episodes.find(e => e.id === id);
     if (ep) {
       ep.content = content;
-      // アクティブエピソードの場合はtextareaを更新
       if (episodeState.activeId === id) {
         const ta = $('script-textarea');
         const hadFocus = ta === document.activeElement;
@@ -956,7 +1055,7 @@ async function createPeer(peerId, isInitiator) {
       if (track.kind === 'video') {
         const params = sender.getParameters();
         if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-        params.encodings[0].maxBitrate = 300_000; // 300kbps
+        params.encodings[0].maxBitrate = 300_000;
         params.encodings[0].maxFramerate = 15;
         sender.setParameters(params).catch(() => {});
       }
@@ -1005,7 +1104,8 @@ function addRemoteVideo(peerId, stream) {
 
   const label = document.createElement('div');
   label.className = 'video-label';
-  label.textContent = `参加者 ${peerId.slice(0, 6)}`;
+  label.id = `label-${peerId}`;
+  label.textContent = peerUsernames[peerId] || `参加者 ${peerId.slice(0, 6)}`;
 
   wrapper.appendChild(video);
   wrapper.appendChild(label);
@@ -1030,9 +1130,15 @@ function updateParticipants() {
 }
 
 // ===== 通話参加 =====
+// ルーム参加前のローカル台本内容を保持
+let preJoinScriptContent = '';
+
 async function joinCall() {
   const roomId = $('room-input').value.trim().toUpperCase();
   if (!roomId) { showToast('ルームIDを入力してください', 'error'); return; }
+
+  const username = getUserName();
+  saveUsername(username.replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 20) || 'user');
 
   try {
     $('btn-join-call').disabled = true;
@@ -1057,6 +1163,10 @@ async function joinCall() {
     ws.roomId = roomId;
     ws.inCall = true;
 
+    // 自分のビデオラベルにユーザー名を表示
+    const localLabel = $('local-video-label');
+    if (localLabel) localLabel.textContent = username + '（自分）';
+
     const localVid = $('local-video');
     localVid.srcObject = stream;
 
@@ -1064,13 +1174,18 @@ async function joinCall() {
       $('local-wrapper').innerHTML = `
         <div class="video-placeholder">
           <div class="avatar">🎙️</div>
-          <span>音声のみ</span>
+          <span>${username}</span>
         </div>
-        <div class="video-label">自分</div>
+        <div class="video-label" id="local-video-label">${username}（自分）</div>
       `;
     }
 
-    ws.socket.emit('join-room', roomId);
+    // 台本の現在内容を保持（参加後も維持するため）
+    const curEp = getActiveEpisode();
+    preJoinScriptContent = curEp ? curEp.content : $('script-textarea').value;
+
+    // サーバー参加
+    ws.socket.emit('join-room', { roomId, username });
 
     const url = new URL(window.location.href);
     url.searchParams.set('room', roomId);
@@ -1084,8 +1199,10 @@ async function joinCall() {
     $('label-call').textContent = `通話中：${roomId}`;
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
-
     document.querySelector('main').classList.add('in-call');
+
+    // サーバー側録音を自動開始
+    startServerRecording(username);
 
   } catch (err) {
     $('btn-join-call').disabled = false;
@@ -1096,6 +1213,9 @@ async function joinCall() {
 
 // ===== 通話終了 =====
 function leaveCall() {
+  // サーバー側録音を停止
+  stopServerRecording();
+
   Object.keys(ws.peers).forEach(removePeer);
   ws.peers = {};
 
@@ -1107,7 +1227,7 @@ function leaveCall() {
   document.querySelectorAll('.remote-wrapper').forEach(el => el.remove());
   $('local-wrapper').innerHTML = `
     <video id="local-video" autoplay muted playsinline></video>
-    <div class="video-label">自分</div>
+    <div class="video-label" id="local-video-label">自分</div>
   `;
 
   if (ws.socket) ws.socket.emit('leave-room');
@@ -1131,7 +1251,10 @@ function leaveCall() {
 
   setDot('call', 'ok');
   $('label-call').textContent = '通話：接続OK';
-  showToast('通話を終了しました', 'info');
+  setDot('srv-rec', '');
+  $('label-srv-rec').textContent = 'サーバー録音：待機中';
+  setFooterStatus('srv', '', 'サーバー録音：待機中');
+  showToast('通話を終了しました。サーバー録音をFLAC変換中...', 'info');
   document.querySelector('main').classList.remove('in-call');
   updateSyncBadge('offline');
 
@@ -1141,7 +1264,6 @@ function leaveCall() {
   updateTypingIndicator();
   $('script-user-count').style.display = 'none';
 
-  // ローカルに戻す
   loadLocalEpisodes();
 }
 
@@ -1194,14 +1316,95 @@ $('btn-copy-url').addEventListener('click', () => {
 $('room-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinCall(); });
 
 // =========================================================
+// ===== サーバー側録音（Craig方式） =====
+// =========================================================
+
+let srvRecMR = null;
+let srvRecStream = null;
+let srvRecActive = false;
+
+async function startServerRecording(username) {
+  if (srvRecActive) return;
+  try {
+    const deviceId = $('mic-select').value;
+    const constraints = {
+      audio: deviceId
+        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+        : { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+    };
+    srvRecStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    const mimeType = getBestMimeType();
+    srvRecMR = new MediaRecorder(srvRecStream, {
+      mimeType: mimeType || undefined,
+      audioBitsPerSecond: 192000,
+    });
+
+    ws.socket.emit('start-server-recording', { username });
+
+    srvRecMR.ondataavailable = async (e) => {
+      if (e.data && e.data.size > 0 && ws.socket && ws.socket.connected) {
+        try {
+          const buf = await e.data.arrayBuffer();
+          ws.socket.emit('audio-stream-chunk', buf);
+        } catch (err) {
+          console.warn('[サーバー録音] チャンク送信エラー:', err);
+        }
+      }
+    };
+
+    srvRecMR.start(1000); // 1秒ごとにチャンク送信
+    srvRecActive = true;
+
+    setDot('srv-rec', 'srv-rec');
+    $('label-srv-rec').textContent = `サーバー録音中：${username}`;
+    setFooterStatus('srv', 'srv-rec', `サーバー録音中`);
+    $('srv-rec-banner').classList.add('visible');
+    $('srv-rec-label').textContent = `サーバー側録音中（${username}）— 退出時にFLACで保存されます`;
+
+    console.log('[サーバー録音] 開始:', username);
+  } catch (err) {
+    console.error('[サーバー録音] 開始エラー:', err);
+    showToast(`サーバー録音エラー: ${err.message}`, 'error');
+  }
+}
+
+function stopServerRecording() {
+  if (!srvRecActive) return;
+  srvRecActive = false;
+
+  if (srvRecMR && srvRecMR.state !== 'inactive') {
+    srvRecMR.stop();
+  }
+  if (srvRecStream) {
+    srvRecStream.getTracks().forEach(t => t.stop());
+    srvRecStream = null;
+  }
+  if (ws.socket) ws.socket.emit('stop-server-recording');
+  srvRecMR = null;
+
+  $('srv-rec-banner').classList.remove('visible');
+  setDot('srv-rec', '');
+  $('label-srv-rec').textContent = 'サーバー録音：変換中...';
+  setFooterStatus('srv', '', 'サーバー録音：変換中...');
+
+  // 変換完了を表示（サーバー側で処理）
+  setTimeout(() => {
+    $('label-srv-rec').textContent = 'サーバー録音：待機中';
+    setFooterStatus('srv', '', 'サーバー録音：待機中');
+  }, 5000);
+
+  console.log('[サーバー録音] 停止・サーバーへ保存指示');
+}
+
+// =========================================================
 // ===== 台本・エピソード管理 =====
 // =========================================================
 
 const LS_EPISODES_KEY = 'podcast-episodes-v2';
 
-// エピソード状態
 const episodeState = {
-  episodes: [],  // [{id, name, content}]
+  episodes: [],
   activeId: null,
 };
 
@@ -1213,9 +1416,8 @@ function getActiveEpisode() {
   return episodeState.episodes.find(e => e.id === episodeState.activeId) || episodeState.episodes[0] || null;
 }
 
-// ローカルストレージ保存
 function saveLocalEpisodes() {
-  if (ws.inCall) return; // 通話中はサーバーが管理
+  if (ws.inCall) return;
   try {
     localStorage.setItem(LS_EPISODES_KEY, JSON.stringify({
       episodes: episodeState.episodes,
@@ -1224,7 +1426,6 @@ function saveLocalEpisodes() {
   } catch {}
 }
 
-// ローカルストレージ読み込み
 function loadLocalEpisodes() {
   try {
     const saved = localStorage.getItem(LS_EPISODES_KEY);
@@ -1248,14 +1449,30 @@ function loadLocalEpisodes() {
 }
 
 // サーバーからの全エピソード同期
+// ルーム参加後も事前入力した台本を維持する
 function handleEpisodesSync(data) {
-  episodeState.episodes = data.list || [];
-  episodeState.activeId = data.activeId || (episodeState.episodes[0] && episodeState.episodes[0].id);
+  const serverEpisodes = data.list || [];
+  const serverHasContent = serverEpisodes.some(e => e.content && e.content.trim().length > 0);
+
+  episodeState.episodes = serverEpisodes;
+  episodeState.activeId = data.activeId || (serverEpisodes[0] && serverEpisodes[0].id);
+
+  // サーバーが空で、参加前に入力済みコンテンツがある場合 → ローカル内容を使用してサーバーへ送信
+  if (!serverHasContent && preJoinScriptContent && preJoinScriptContent.trim()) {
+    const activeEp = getActiveEpisode();
+    if (activeEp) {
+      activeEp.content = preJoinScriptContent;
+      if (ws.socket) {
+        ws.socket.emit('episode-update', { id: activeEp.id, content: preJoinScriptContent });
+      }
+    }
+  }
+  preJoinScriptContent = '';
+
   renderEpisodeTabs();
   renderActiveEpisode();
 }
 
-// タブを描画
 function renderEpisodeTabs() {
   const tabsEl = $('episode-tabs');
   tabsEl.innerHTML = '';
@@ -1269,15 +1486,12 @@ function renderEpisodeTabs() {
   });
 }
 
-// アクティブエピソードの内容をtextareaに反映
 function renderActiveEpisode() {
   const ep = getActiveEpisode();
   $('script-textarea').value = ep ? ep.content : '';
 }
 
-// エピソード選択
 function selectEpisode(id) {
-  // 現在のテキストを保存
   const current = getActiveEpisode();
   if (current) current.content = $('script-textarea').value;
 
@@ -1291,7 +1505,6 @@ function selectEpisode(id) {
   }
 }
 
-// エピソード追加
 function addEpisode() {
   const epNum = episodeState.episodes.length + 1;
   const name = `EP${epNum}`;
@@ -1308,7 +1521,6 @@ function addEpisode() {
   }
 }
 
-// エピソード名変更
 function renameEpisode() {
   const ep = getActiveEpisode();
   if (!ep) return;
@@ -1325,7 +1537,6 @@ function renameEpisode() {
   }
 }
 
-// エピソード削除
 function deleteEpisode() {
   if (episodeState.episodes.length <= 1) {
     showToast('エピソードは最低1つ必要です', 'error');
@@ -1350,7 +1561,6 @@ $('btn-ep-add').addEventListener('click', addEpisode);
 $('btn-ep-rename').addEventListener('click', renameEpisode);
 $('btn-ep-delete').addEventListener('click', deleteEpisode);
 
-// ===== 台本リアルタイム同期 =====
 function updateSyncBadge(state) {
   const badge = $('sync-badge');
   badge.className = `sync-badge ${state}`;
@@ -1371,7 +1581,6 @@ function updateTypingIndicator() {
 
 let scriptDebounce = null;
 $('script-textarea').addEventListener('input', () => {
-  // 現在のエピソードに反映
   const ep = getActiveEpisode();
   if (ep) ep.content = $('script-textarea').value;
 
@@ -1380,7 +1589,6 @@ $('script-textarea').addEventListener('input', () => {
     return;
   }
 
-  // タイピング通知
   if (ws.socket) ws.socket.emit('script-typing', true);
   clearTimeout(typingStopTimer);
   typingStopTimer = setTimeout(() => {
@@ -1395,6 +1603,128 @@ $('script-textarea').addEventListener('input', () => {
     }
     updateSyncBadge('synced');
   }, 150);
+});
+
+// =========================================================
+// ===== VUメーター =====
+// =========================================================
+
+let vuAnalyser = null;
+let vuStream = null;
+let vuAnimFrame = null;
+let vuCtx = null;
+let silenceTimer = null;
+let vuMuted = false;
+
+async function startVUMeter() {
+  if (vuAnalyser) return;
+  try {
+    const deviceId = $('mic-select').value;
+    const constraints = {
+      audio: deviceId
+        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false }
+        : { echoCancellation: false, noiseSuppression: false }
+    };
+    vuStream = await navigator.mediaDevices.getUserMedia(constraints);
+    vuCtx = new AudioContext();
+    const source = vuCtx.createMediaStreamSource(vuStream);
+    vuAnalyser = vuCtx.createAnalyser();
+    vuAnalyser.fftSize = 2048;
+    vuAnalyser.smoothingTimeConstant = 0.25;
+    source.connect(vuAnalyser);
+    requestAnimationFrame(updateVUMeter);
+    console.log('[VUメーター] 開始');
+  } catch (e) {
+    console.warn('[VUメーター] 初期化失敗:', e.message);
+  }
+}
+
+function stopVUMeter() {
+  if (vuAnimFrame) { cancelAnimationFrame(vuAnimFrame); vuAnimFrame = null; }
+  if (vuStream) { vuStream.getTracks().forEach(t => t.stop()); vuStream = null; }
+  if (vuCtx) { vuCtx.close().catch(() => {}); vuCtx = null; }
+  vuAnalyser = null;
+  if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+  const bar = $('vu-bar');
+  if (bar) bar.style.width = '0%';
+  const dbLabel = $('vu-db-label');
+  if (dbLabel) dbLabel.textContent = '— dB';
+  const msg = $('vu-message');
+  if (msg) { msg.textContent = ''; }
+}
+
+function updateVUMeter() {
+  if (!vuAnalyser) return;
+
+  const data = new Float32Array(vuAnalyser.fftSize);
+  vuAnalyser.getFloatTimeDomainData(data);
+
+  // RMS計算
+  let sum = 0;
+  let peak = 0;
+  for (let i = 0; i < data.length; i++) {
+    sum += data[i] * data[i];
+    if (Math.abs(data[i]) > peak) peak = Math.abs(data[i]);
+  }
+  const rms = Math.sqrt(sum / data.length);
+
+  // dB変換（-60dBフロア）
+  const db = rms > 0.000001 ? Math.max(-60, 20 * Math.log10(rms)) : -60;
+
+  // バー幅（-60dB=0%, 0dB=100%）
+  const pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+
+  const bar = $('vu-bar');
+  const dbLabel = $('vu-db-label');
+  const msg = $('vu-message');
+
+  if (bar) bar.style.width = pct + '%';
+  if (dbLabel) dbLabel.textContent = db > -60 ? `${db.toFixed(1)} dB` : '-∞ dB';
+
+  // クリッピング検知（peak >= 0.99）
+  const isClipping = peak >= 0.99;
+
+  if (msg) {
+    if (isClipping || db >= 0) {
+      msg.textContent = '⚠️ クリッピング！録音レベルが高すぎます';
+      msg.style.color = 'var(--red)';
+    } else if (db >= -6) {
+      msg.textContent = '⚠️ 音量が高めです（-6dB以下を推奨）';
+      msg.style.color = 'var(--yellow)';
+    } else if (db >= -12) {
+      msg.textContent = '✓ 適正レベルです';
+      msg.style.color = 'var(--green)';
+    } else {
+      msg.textContent = '';
+    }
+  }
+
+  // 無音検知（-55dB以下 = ほぼ無音）
+  if (db < -55) {
+    if (!silenceTimer) {
+      silenceTimer = setTimeout(() => {
+        if (msg && !msg.textContent) {
+          msg.textContent = '⚠️ マイクを確認してください（5秒以上無音が続いています）';
+          msg.style.color = 'var(--yellow)';
+        }
+      }, 5000);
+    }
+  } else {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
+      silenceTimer = null;
+    }
+  }
+
+  vuAnimFrame = requestAnimationFrame(updateVUMeter);
+}
+
+// マイク変更時にVUメーターを再起動
+$('mic-select').addEventListener('change', async () => {
+  if (vuAnalyser) {
+    stopVUMeter();
+    await startVUMeter();
+  }
 });
 
 // =========================================================
@@ -1467,7 +1797,6 @@ async function checkRecovery() {
   const btnDl    = $('btn-recovery-dl');
   const btnDel   = $('btn-recovery-del');
 
-  // 最新セッションのみ対象
   const session = sessions.sort((a, b) => b.ts - a.ts)[0];
   const d = new Date(session.ts);
   subLabel.textContent =
@@ -1479,23 +1808,25 @@ async function checkRecovery() {
 
   btnDl.onclick = async () => {
     btnDl.disabled = true;
-    btnDl.textContent = '結合中...';
+    btnDl.textContent = '変換中...';
     const chunks = await idbGetChunks(session.sessionId);
     if (chunks.length === 0) { banner.classList.remove('visible'); return; }
-    const mimeType = chunks[0].mimeType || 'audio/webm';
+    const mimeType = chunks[0].mimeType || 'audio/webm;codecs=opus';
     const blob = new Blob(chunks.map(c => c.blob), { type: mimeType });
-    const filename = `surecast-${session.sessionId}-recovered.webm`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    if (blob.size === 0) { banner.classList.remove('visible'); return; }
+
+    // FLACに変換してサーバーへ保存
+    const username = getUserName();
+    addConvertStatus('recover', '変換中（クラッシュ復元）...', 'converting');
+    try {
+      const data = await uploadForFlacConversion(blob, username);
+      updateConvertStatus('recover', `✓ 復元保存完了：${data.filename}`, 'done');
+    } catch (err) {
+      updateConvertStatus('recover', `⚠️ 変換失敗：${err.message}`, 'error');
+    }
+
     await idbClearSession(session.sessionId);
     banner.classList.remove('visible');
-    showToast('録音データを復元・ダウンロードしました', 'success');
   };
 
   btnDel.onclick = async () => {
@@ -1518,16 +1849,13 @@ const state = {
   timerInterval: null,
   chunkInterval: null,
   chunkCount: 0,
-  localFiles: [],
   mimeType: '',
   sessionId: '',
 };
 
-const btnStart    = $('btn-start');
-const btnStop     = $('btn-stop');
-const micSelect   = $('mic-select');
-const chunkLog    = $('chunk-log');
-const fileList    = $('file-list');
+const btnStart  = $('btn-start');
+const btnStop   = $('btn-stop');
+const micSelect = $('mic-select');
 
 async function loadMics() {
   try {
@@ -1544,6 +1872,9 @@ async function loadMics() {
     });
     setDot('mic', 'ok');
     $('label-mic').textContent = `マイク：${mics.length}台検出`;
+
+    // VUメーター開始
+    await startVUMeter();
   } catch {
     setDot('mic', 'warn');
     $('label-mic').textContent = 'マイク：アクセス拒否';
@@ -1552,7 +1883,13 @@ async function loadMics() {
 }
 
 function getBestMimeType() {
-  const types = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+  // audio/webm;codecs=opus を優先
+  const types = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4'
+  ];
   for (const t of types) {
     if (MediaRecorder.isTypeSupported(t)) return t;
   }
@@ -1568,7 +1905,12 @@ async function startRecording() {
         : { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
     };
     state.stream = await navigator.mediaDevices.getUserMedia(constraints);
-    state.mimeType = getBestMimeType();
+
+    // MIMEタイプを audio/webm;codecs=opus に固定（可能な場合）
+    state.mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : getBestMimeType();
+
     state.chunks = [];
     state.chunkCount = 0;
     const _now = new Date();
@@ -1576,27 +1918,33 @@ async function startRecording() {
 
     state.mediaRecorder = new MediaRecorder(state.stream, {
       mimeType: state.mimeType || undefined,
-      audioBitsPerSecond: 128000,
+      audioBitsPerSecond: 192000,
     });
+
+    // ondataavailable → onstop の順序を保証
     state.mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) state.chunks.push(e.data);
+      if (e.data && e.data.size > 0) {
+        state.chunks.push(e.data);
+      }
     };
+
     state.mediaRecorder.onstop = finalizeRecording;
     state.mediaRecorder.start(1000);
+
     state.isRecording = true;
     state.startTime = Date.now();
 
     setRecordingUI(true);
     startTimer();
-    state.chunkInterval = setInterval(saveChunk, 30000);
 
-    // ステータスバー更新
+    // 30秒ごとにIDBへバックアップ保存（クラッシュリカバリー用・サイレント）
+    state.chunkInterval = setInterval(saveChunkToIDB, 30000);
+
     setDot('local-rec', 'active');
     $('label-local-rec').textContent = 'ローカル録音：収録中';
-    // フッターステータス更新
     setFooterStatus('local', 'active', 'ローカル録音：収録中');
 
-    showToast('録音を開始しました（ローカル + クラウド）', 'success');
+    showToast('録音を開始しました', 'success');
   } catch (err) {
     showToast(`録音開始エラー: ${err.message}`, 'error');
   }
@@ -1611,137 +1959,126 @@ function stopRecording() {
   state.isRecording = false;
   setRecordingUI(false);
 
-  // ステータスバー更新
   setDot('local-rec', '');
-  $('label-local-rec').textContent = 'ローカル録音：停止中';
-  setFooterStatus('local', '', 'ローカル録音：停止中');
+  $('label-local-rec').textContent = 'ローカル録音：変換中...';
+  setFooterStatus('local', '', 'ローカル録音：変換中...');
 }
 
+// onstopで呼ばれる（全ondataavailableの後に実行が保証される）
 async function finalizeRecording() {
   const sessionId = state.sessionId;
-  if (state.chunks.length > 0) {
-    state.chunkCount++;
-    const partNum = String(state.chunkCount).padStart(3, '0');
-    const filename = `surecast-${sessionId}-part${partNum}.webm`;
-    const blob = new Blob(state.chunks, { type: state.mimeType || 'audio/webm' });
-    // 最終チャンクをIDBに保存してからUIに追加・クラウド送信
-    await idbSaveChunk(sessionId, state.chunkCount, blob, state.mimeType);
-    addLocalFile(blob, filename, true);
-    state.chunks = [];
-    uploadToServer(blob, filename);
+
+  // 全チャンクが揃っているか確認
+  if (state.chunks.length === 0) {
+    console.warn('[録音] チャンクが空です');
+    setDot('local-rec', 'warn');
+    $('label-local-rec').textContent = 'ローカル録音：停止中（データなし）';
+    setFooterStatus('local', 'warn', 'データなし');
+    await idbClearSession(sessionId);
+    return;
   }
+
+  const mimeType = state.mimeType || 'audio/webm;codecs=opus';
+  const blob = new Blob(state.chunks, { type: mimeType });
+  state.chunks = [];
+
+  // サイズ確認
+  if (blob.size === 0) {
+    console.warn('[録音] Blobサイズが0です');
+    setDot('local-rec', 'warn');
+    $('label-local-rec').textContent = 'ローカル録音：停止中（ファイルエラー）';
+    setFooterStatus('local', 'warn', 'ファイルエラー');
+    await idbClearSession(sessionId);
+    return;
+  }
+
+  // FLACに変換してサーバーへ保存
+  const username = getUserName();
+  const itemId = 'local-' + sessionId;
+  addConvertStatus(itemId, `変換中... (${formatSize(blob.size)})`, 'converting');
+
+  try {
+    const data = await uploadForFlacConversion(blob, username);
+    updateConvertStatus(itemId, `✓ 保存完了：${data.filename} (${formatSize(data.size)})`, 'done');
+    setDot('local-rec', 'ok');
+    $('label-local-rec').textContent = 'ローカル録音：保存完了';
+    setFooterStatus('local', 'ok', 'ローカル録音：保存完了');
+    setTimeout(() => {
+      $('label-local-rec').textContent = 'ローカル録音：停止中';
+      setFooterStatus('local', '', 'ローカル録音：停止中');
+    }, 5000);
+  } catch (err) {
+    updateConvertStatus(itemId, `⚠️ 変換失敗：${err.message}`, 'error');
+    setDot('local-rec', 'warn');
+    $('label-local-rec').textContent = 'ローカル録音：変換失敗';
+    setFooterStatus('local', 'warn', 'ローカル録音：変換失敗');
+  }
+
   // 正常終了 → IDBのセッションデータを削除
   await idbClearSession(sessionId);
 }
 
-async function saveChunk() {
+// 30秒ごとのIDB保存（クラッシュリカバリー用・サイレント）
+async function saveChunkToIDB() {
   if (state.chunks.length === 0) return;
   state.chunkCount++;
   const snap = [...state.chunks];
   state.chunks = [];
-  const now = new Date();
-  const partNum = String(state.chunkCount).padStart(3, '0');
-  const filename = `surecast-${state.sessionId}-part${partNum}.webm`;
-  const blob = new Blob(snap, { type: state.mimeType || 'audio/webm' });
-
-  // IndexedDB に自動保存
-  await idbSaveChunk(state.sessionId, state.chunkCount, blob, state.mimeType);
-
-  addLocalFile(blob, filename, false);
-  uploadToServer(blob, filename);
-  showToast('自動保存済み', 'info');
-  const entry = document.createElement('div');
-  entry.className = 'log-entry';
-  entry.innerHTML = `<span class="time">${formatTime(now)}</span> ${filename} を自動保存 (${formatSize(blob.size)})`;
-  chunkLog.insertBefore(entry, chunkLog.firstChild);
-}
-
-// isLatest=true のとき「PCに保存」ボタンを強調
-function addLocalFile(blob, filename, isLatest) {
-  const url = URL.createObjectURL(blob);
-  state.localFiles.unshift({ blob, url, filename, size: blob.size, date: new Date(), isNew: isLatest });
-  renderFileList();
-}
-
-function renderFileList() {
-  if (state.localFiles.length === 0) {
-    fileList.innerHTML = '<div class="empty-state">録音を開始すると、ここにファイルが表示されます</div>';
-    return;
+  const blob = new Blob(snap, { type: state.mimeType || 'audio/webm;codecs=opus' });
+  if (blob.size > 0) {
+    await idbSaveChunk(state.sessionId, state.chunkCount, blob, state.mimeType);
   }
-  fileList.innerHTML = '';
-  state.localFiles.forEach((f, i) => {
-    const item = document.createElement('div');
-    item.className = 'file-item' + (f.isNew ? ' new-file' : '');
-    item.innerHTML = `
-      <div class="file-info">
-        <div class="file-name">${f.filename}</div>
-        <div class="file-meta">${formatDatetimeDisplay(f.date)} ・ ${formatSize(f.size)}</div>
-        <audio controls src="${f.url}"></audio>
-      </div>
-      <div class="file-actions">
-        <button class="btn-small ${f.isNew ? 'btn-dl-now' : 'btn-dl'}" onclick="downloadFile(${i})">
-          ${f.isNew ? '⬇ PCに保存' : '⬇ 保存'}
-        </button>
-      </div>
-    `;
-    fileList.appendChild(item);
-    // isNew フラグをリセット（ハイライトは一度だけ）
-    f.isNew = false;
+}
+
+// ===== FLAC変換アップロード =====
+async function uploadForFlacConversion(blob, username) {
+  const formData = new FormData();
+  formData.append('audio', blob, 'recording.webm');
+  formData.append('username', (username || 'user').replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 20));
+
+  const res = await fetch('/convert-to-flac', {
+    method: 'POST',
+    body: formData,
   });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
-function downloadFile(index) {
-  const f = state.localFiles[index];
-  const a = document.createElement('a');
-  a.href = f.url; a.download = f.filename; a.click();
+// ===== 変換ステータスUI =====
+function addConvertStatus(id, text, type) {
+  const list = $('convert-status-list');
+  // 空状態を削除
+  const empty = list.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = `convert-item ${type}`;
+  item.id = `convert-item-${id}`;
+
+  const icons = { converting: '🔄', done: '✓', error: '⚠️' };
+  item.innerHTML = `
+    <div class="convert-icon">${icons[type] || '🎵'}</div>
+    <div class="convert-text">
+      <div class="convert-title" id="convert-title-${id}">${text}</div>
+      <div class="convert-sub">${new Date().toLocaleTimeString('ja-JP')}</div>
+    </div>
+  `;
+  list.insertBefore(item, list.firstChild);
 }
 
-async function uploadToServer(blob, filename) {
-  const statusArea  = $('upload-status-area');
-  const statusMsg   = $('upload-status-msg');
-  const progressBar = $('progress-bar');
-
-  statusArea.classList.add('visible');
-  statusMsg.innerHTML = `<span>⬆️</span><span>「${filename}」をクラウドへ送信中...</span>`;
-  progressBar.style.width = '10%';
-
-  // クラウドステータス更新
-  setDot('cloud', 'uploading');
-  $('label-cloud').textContent = 'クラウド：送信中...';
-  setFooterStatus('cloud', 'uploading', 'クラウド：送信中...');
-
-  try {
-    const formData = new FormData();
-    formData.append('audio', blob, filename);
-    const xhr = new XMLHttpRequest();
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        progressBar.style.width = Math.round((e.loaded / e.total) * 90 + 10) + '%';
-      }
-    };
-    await new Promise((resolve, reject) => {
-      xhr.open('POST', '/upload');
-      xhr.onload = () => xhr.status === 200 ? resolve() : reject(new Error(`HTTP ${xhr.status}`));
-      xhr.onerror = () => reject(new Error('ネットワークエラー'));
-      xhr.send(formData);
-    });
-    progressBar.style.width = '100%';
-    statusMsg.innerHTML = `<span style="color:var(--green)">✓</span><span style="color:var(--green)">クラウド送信完了：${filename}</span>`;
-    setTimeout(() => { progressBar.style.width = '0'; statusArea.classList.remove('visible'); }, 4000);
-
-    setDot('cloud', 'ok');
-    $('label-cloud').textContent = 'クラウド：送信完了';
-    setFooterStatus('cloud', 'ok', 'クラウド：送信完了');
-    showToast('クラウドへの保存が完了しました', 'success');
-  } catch (err) {
-    progressBar.style.width = '0';
-    statusMsg.innerHTML = `<span style="color:var(--yellow)">⚠️</span><span style="color:var(--yellow)">クラウド送信失敗（ローカルに保存済み）：${err.message}</span>`;
-    setTimeout(() => { statusArea.classList.remove('visible'); }, 6000);
-
-    setDot('cloud', 'warn');
-    $('label-cloud').textContent = 'クラウド：送信失敗';
-    setFooterStatus('cloud', 'warn', 'クラウド：送信失敗');
-    console.warn('アップロード失敗:', err.message);
+function updateConvertStatus(id, text, type) {
+  const item = $(`convert-item-${id}`);
+  if (item) {
+    item.className = `convert-item ${type}`;
+    const icons = { converting: '🔄', done: '✓', error: '⚠️' };
+    const icon = item.querySelector('.convert-icon');
+    const title = $(`convert-title-${id}`);
+    if (icon) icon.textContent = icons[type] || '🎵';
+    if (title) title.textContent = text;
   }
 }
 
@@ -1773,15 +2110,11 @@ function setRecordingUI(recording) {
 
 function setFooterStatus(type, dotClass, label) {
   if (type === 'local') {
-    const dot = $('rec-dot-local');
-    const lbl = $('rec-label-local');
-    dot.className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
-    lbl.textContent = label;
-  } else if (type === 'cloud') {
-    const dot = $('rec-dot-cloud');
-    const lbl = $('rec-label-cloud');
-    dot.className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
-    lbl.textContent = label;
+    $('rec-dot-local').className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
+    $('rec-label-local').textContent = label;
+  } else if (type === 'srv') {
+    $('rec-dot-srv').className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
+    $('rec-label-srv').textContent = label;
   }
 }
 
@@ -1789,14 +2122,11 @@ async function checkServer() {
   try {
     const res = await fetch('/recordings', { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
-      setDot('cloud', 'ok');
-      $('label-cloud').textContent = 'クラウド：接続OK';
-      setFooterStatus('cloud', 'ok', 'クラウド：接続OK');
+      setDot('srv-rec', '');
+      $('label-srv-rec').textContent = 'サーバー録音：待機中';
     }
   } catch {
-    setDot('cloud', 'warn');
-    $('label-cloud').textContent = 'クラウド：オフライン（ローカル録音のみ）';
-    setFooterStatus('cloud', 'warn', 'クラウド：オフライン');
+    // サイレントに失敗（サーバー未接続）
   }
 }
 
@@ -1807,6 +2137,9 @@ window.addEventListener('beforeunload', (e) => {
     e.preventDefault();
     e.returnValue = '録音中です。ページを離れると録音が失われます。';
   }
+  if (srvRecActive) {
+    stopServerRecording();
+  }
 });
 
 // =========================================================
@@ -1814,6 +2147,7 @@ window.addEventListener('beforeunload', (e) => {
 // =========================================================
 (async () => {
   loadRoomFromUrl();
+  loadUsername();
   loadLocalEpisodes();
   updateSyncBadge('offline');
   initSocket();

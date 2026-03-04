@@ -126,6 +126,20 @@
       color: var(--text-dim);
       margin-top: 3px;
     }
+    .file-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-weight: 700;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .badge-flac { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+    .badge-srv  { background: rgba(217,119,6,0.15); color: var(--accent); border: 1px solid rgba(217,119,6,0.3); }
+    .badge-local{ background: rgba(96,165,250,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+    .badge-webm { background: rgba(160,160,160,0.15); color: var(--text-dim); border: 1px solid rgba(160,160,160,0.3); }
+    .flac-note  { font-size: 0.72rem; color: var(--text-dim); margin-top: 6px; font-style: italic; }
     .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .btn-dl {
       padding: 7px 16px;
@@ -260,14 +274,32 @@ async function loadRecordings() {
 
     listEl.innerHTML = '';
     files.forEach(f => {
+      const isFlac = /\.flac$/i.test(f.name);
+      const isLocal = /-local\.flac$/i.test(f.name);
+      const isSrv   = /\.flac$/i.test(f.name) && !isLocal;
+
+      let badge = '';
+      let icon = '🎵';
+      if (isFlac) {
+        icon = '🎙️';
+        if (isLocal) {
+          badge = '<span class="file-badge badge-local">ローカル録音</span>';
+        } else {
+          badge = '<span class="file-badge badge-flac">サーバー録音</span>';
+        }
+      } else {
+        badge = '<span class="file-badge badge-webm">WebM</span>';
+      }
+
       const card = document.createElement('div');
       card.className = 'file-card';
       card.innerHTML = `
         <div class="file-row">
-          <div class="file-icon">🎵</div>
+          <div class="file-icon">${icon}</div>
           <div class="file-info">
-            <div class="file-name">${f.name}</div>
+            <div class="file-name">${f.name}${badge}</div>
             <div class="file-meta">${formatDate(f.mtime)} ／ ${formatSize(f.size)}</div>
+            ${isFlac ? '<div class="flac-note">FLAC形式 — ダウンロードしてご使用ください（ブラウザ再生非対応の場合があります）</div>' : ''}
           </div>
           <div class="file-actions">
             <a class="btn-dl" href="/recordings/${encodeURIComponent(f.name)}" download="${f.name}">
@@ -275,7 +307,7 @@ async function loadRecordings() {
             </a>
           </div>
         </div>
-        <audio controls src="/recordings/${encodeURIComponent(f.name)}"></audio>
+        ${!isFlac ? `<audio controls src="/recordings/${encodeURIComponent(f.name)}"></audio>` : ''}
       `;
       listEl.appendChild(card);
     });
