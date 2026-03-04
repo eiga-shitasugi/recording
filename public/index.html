@@ -344,6 +344,32 @@
 
     .empty-state { text-align: center; padding: 28px; color: var(--text-dim); font-size: 0.88rem; }
 
+    /* ===== クラッシュリカバリーバナー ===== */
+    #recovery-banner {
+      display: none;
+      background: #1a1200;
+      border-bottom: 2px solid var(--accent);
+      padding: 14px 24px;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.88rem;
+    }
+    #recovery-banner.visible { display: flex; }
+    #recovery-banner .recovery-msg { flex: 1; color: var(--accent); font-weight: 600; }
+    #recovery-banner .recovery-sub { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+    #recovery-banner .btn-recovery-dl {
+      background: var(--accent); color: #000; border: none; border-radius: 6px;
+      padding: 7px 16px; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+      white-space: nowrap;
+    }
+    #recovery-banner .btn-recovery-del {
+      background: transparent; color: var(--text-dim); border: 1px solid var(--border);
+      border-radius: 6px; padding: 7px 14px; font-size: 0.82rem; cursor: pointer;
+      white-space: nowrap;
+    }
+    #recovery-banner .btn-recovery-del:hover { color: var(--red); border-color: var(--red); }
+
     /* ===== トースト ===== */
     #toast {
       position: fixed; bottom: calc(var(--footer-h) + 12px); left: 50%;
@@ -584,6 +610,15 @@
   <img src="/images/surecast-logo-2-white.png" alt="SureCast" class="header-logo">
   <a href="/recordings.html" class="header-link">☁ クラウド録音一覧</a>
 </header>
+
+<div id="recovery-banner">
+  <div>
+    <div class="recovery-msg">⚠️ 前回の録音が復元できます。ダウンロードしますか？</div>
+    <div class="recovery-sub" id="recovery-sub"></div>
+  </div>
+  <button class="btn-recovery-dl" id="btn-recovery-dl">⬇ ダウンロード</button>
+  <button class="btn-recovery-del" id="btn-recovery-del">🗑 削除</button>
+</div>
 
 <div id="status-bar">
   <div class="status-item">
@@ -1363,6 +1398,114 @@ $('script-textarea').addEventListener('input', () => {
 });
 
 // =========================================================
+// ===== IndexedDB クラッシュリカバリー =====
+// =========================================================
+
+const IDB_NAME = 'surecast-recovery';
+const IDB_VERSION = 1;
+let idb = null;
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('sessions')) {
+        db.createObjectStore('sessions', { keyPath: 'sessionId' });
+      }
+      if (!db.objectStoreNames.contains('chunks')) {
+        const s = db.createObjectStore('chunks', { keyPath: 'key' });
+        s.createIndex('sessionId', 'sessionId', { unique: false });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function idbReq(req) {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror  = (e) => reject(e.target.error);
+  });
+}
+
+async function idbSaveChunk(sessionId, chunkIndex, blob, mimeType) {
+  if (!idb) return;
+  const tx = idb.transaction(['chunks', 'sessions'], 'readwrite');
+  tx.objectStore('chunks').put({ key: `${sessionId}-${chunkIndex}`, sessionId, chunkIndex, blob, mimeType });
+  tx.objectStore('sessions').put({ sessionId, mimeType, chunkCount: chunkIndex, ts: Date.now() });
+}
+
+async function idbGetSessions() {
+  if (!idb) return [];
+  const tx = idb.transaction('sessions', 'readonly');
+  return idbReq(tx.objectStore('sessions').getAll());
+}
+
+async function idbGetChunks(sessionId) {
+  if (!idb) return [];
+  const tx = idb.transaction('chunks', 'readonly');
+  const all = await idbReq(tx.objectStore('chunks').index('sessionId').getAll(sessionId));
+  return all.sort((a, b) => a.chunkIndex - b.chunkIndex);
+}
+
+async function idbClearSession(sessionId) {
+  if (!idb) return;
+  const chunks = await idbGetChunks(sessionId);
+  const tx = idb.transaction(['chunks', 'sessions'], 'readwrite');
+  chunks.forEach(c => tx.objectStore('chunks').delete(c.key));
+  tx.objectStore('sessions').delete(sessionId);
+}
+
+async function checkRecovery() {
+  const sessions = await idbGetSessions();
+  if (sessions.length === 0) return;
+
+  const banner   = $('recovery-banner');
+  const subLabel = $('recovery-sub');
+  const btnDl    = $('btn-recovery-dl');
+  const btnDel   = $('btn-recovery-del');
+
+  // 最新セッションのみ対象
+  const session = sessions.sort((a, b) => b.ts - a.ts)[0];
+  const d = new Date(session.ts);
+  subLabel.textContent =
+    `セッション: ${session.sessionId}  チャンク数: ${session.chunkCount}  `
+    + `(${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} `
+    + `${pad(d.getHours())}:${pad(d.getMinutes())})`;
+
+  banner.classList.add('visible');
+
+  btnDl.onclick = async () => {
+    btnDl.disabled = true;
+    btnDl.textContent = '結合中...';
+    const chunks = await idbGetChunks(session.sessionId);
+    if (chunks.length === 0) { banner.classList.remove('visible'); return; }
+    const mimeType = chunks[0].mimeType || 'audio/webm';
+    const blob = new Blob(chunks.map(c => c.blob), { type: mimeType });
+    const filename = `surecast-${session.sessionId}-recovered.webm`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    await idbClearSession(session.sessionId);
+    banner.classList.remove('visible');
+    showToast('録音データを復元・ダウンロードしました', 'success');
+  };
+
+  btnDel.onclick = async () => {
+    await idbClearSession(session.sessionId);
+    banner.classList.remove('visible');
+    showToast('前回の録音データを削除しました', 'info');
+  };
+}
+
+// =========================================================
 // ===== 録音機能 =====
 // =========================================================
 
@@ -1377,6 +1520,7 @@ const state = {
   chunkCount: 0,
   localFiles: [],
   mimeType: '',
+  sessionId: '',
 };
 
 const btnStart    = $('btn-start');
@@ -1427,6 +1571,8 @@ async function startRecording() {
     state.mimeType = getBestMimeType();
     state.chunks = [];
     state.chunkCount = 0;
+    const _now = new Date();
+    state.sessionId = `${_now.getFullYear()}${pad(_now.getMonth()+1)}${pad(_now.getDate())}-${pad(_now.getHours())}${pad(_now.getMinutes())}${pad(_now.getSeconds())}`;
 
     state.mediaRecorder = new MediaRecorder(state.stream, {
       mimeType: state.mimeType || undefined,
@@ -1471,62 +1617,42 @@ function stopRecording() {
   setFooterStatus('local', '', 'ローカル録音：停止中');
 }
 
-function finalizeRecording() {
-  if (state.chunks.length === 0) return;
-  const now = new Date();
-  const datePart = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
-  const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  state.chunkCount++;
-  const partNum = String(state.chunkCount).padStart(3, '0');
-  const filename = `surecast-${datePart}-${timePart}-part${partNum}.webm`;
-  const blob = new Blob(state.chunks, { type: state.mimeType || 'audio/webm' });
-
-  // 自動ダウンロード
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-
-  addLocalFile(blob, filename, true);
-  state.chunks = [];
-  uploadToServer(blob, filename);
-  showToast(`チャンク${partNum}を保存しました（録音終了）`, 'success');
+async function finalizeRecording() {
+  const sessionId = state.sessionId;
+  if (state.chunks.length > 0) {
+    state.chunkCount++;
+    const partNum = String(state.chunkCount).padStart(3, '0');
+    const filename = `surecast-${sessionId}-part${partNum}.webm`;
+    const blob = new Blob(state.chunks, { type: state.mimeType || 'audio/webm' });
+    // 最終チャンクをIDBに保存してからUIに追加・クラウド送信
+    await idbSaveChunk(sessionId, state.chunkCount, blob, state.mimeType);
+    addLocalFile(blob, filename, true);
+    state.chunks = [];
+    uploadToServer(blob, filename);
+  }
+  // 正常終了 → IDBのセッションデータを削除
+  await idbClearSession(sessionId);
 }
 
-function saveChunk() {
+async function saveChunk() {
   if (state.chunks.length === 0) return;
   state.chunkCount++;
   const snap = [...state.chunks];
   state.chunks = [];
   const now = new Date();
-  const datePart = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}`;
-  const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const partNum = String(state.chunkCount).padStart(3, '0');
-  const filename = `surecast-${datePart}-${timePart}-part${partNum}.webm`;
+  const filename = `surecast-${state.sessionId}-part${partNum}.webm`;
   const blob = new Blob(snap, { type: state.mimeType || 'audio/webm' });
 
-  // 自動ダウンロード
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  // IndexedDB に自動保存
+  await idbSaveChunk(state.sessionId, state.chunkCount, blob, state.mimeType);
 
   addLocalFile(blob, filename, false);
   uploadToServer(blob, filename);
-  showToast(`チャンク${partNum}を保存しました`, 'success');
+  showToast('自動保存済み', 'info');
   const entry = document.createElement('div');
   entry.className = 'log-entry';
-  entry.innerHTML = `<span class="time">${formatTime(now)}</span> ${filename} を保存 (${formatSize(blob.size)})`;
+  entry.innerHTML = `<span class="time">${formatTime(now)}</span> ${filename} を自動保存 (${formatSize(blob.size)})`;
   chunkLog.insertBefore(entry, chunkLog.firstChild);
 }
 
@@ -1693,6 +1819,8 @@ window.addEventListener('beforeunload', (e) => {
   initSocket();
   await loadMics();
   await checkServer();
+  idb = await openIDB().catch(() => null);
+  await checkRecovery();
 })();
 </script>
 </body>
