@@ -23,6 +23,7 @@
       --text: #e8e8f0;
       --text-dim: #888899;
       --radius: 12px;
+      --footer-h: 72px;
     }
 
     body {
@@ -32,58 +33,72 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      padding-bottom: var(--footer-h);
     }
 
     /* ===== ヘッダー ===== */
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
+      padding: 14px 24px;
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em; }
-    header span.icon { font-size: 1.5rem; }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; }
+    header span.icon { font-size: 1.4rem; }
+    header .header-link {
+      margin-left: auto;
+      font-size: 0.82rem;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 6px 12px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    header .header-link:hover { background: rgba(108,99,255,0.15); }
 
     /* ===== ステータスバー ===== */
     #status-bar {
       background: var(--surface2);
       border-bottom: 1px solid var(--border);
-      padding: 10px 24px;
+      padding: 8px 24px;
       display: flex;
       align-items: center;
       gap: 16px;
       flex-wrap: wrap;
-      font-size: 0.88rem;
+      font-size: 0.82rem;
     }
-    .status-item { display: flex; align-items: center; gap: 6px; }
+    .status-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .dot {
-      width: 10px; height: 10px;
+      width: 9px; height: 9px;
       border-radius: 50%;
       background: var(--text-dim);
       flex-shrink: 0;
     }
-    .dot.active { background: var(--red); animation: pulse 1s ease-in-out infinite; }
-    .dot.ok { background: var(--green); animation: none; }
-    .dot.warn { background: var(--yellow); animation: none; }
-    .dot.call-active { background: var(--teal); animation: pulse 1s ease-in-out infinite; }
+    .dot.active     { background: var(--red);   animation: pulse 1s ease-in-out infinite; }
+    .dot.ok         { background: var(--green);  animation: none; }
+    .dot.warn       { background: var(--yellow); animation: none; }
+    .dot.uploading  { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+    .dot.call-active{ background: var(--teal);   animation: pulse 1s ease-in-out infinite; }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.85); }
+      50%       { opacity: 0.5; transform: scale(0.85); }
     }
 
     /* ===== メインレイアウト ===== */
     main {
       flex: 1;
-      padding: 24px;
+      padding: 20px;
       max-width: 960px;
       width: 100%;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
     }
 
     /* ===== カード ===== */
@@ -91,55 +106,34 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 24px;
+      padding: 20px;
     }
     .card-title {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 700;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
-
-    /* ===== 録音パネル ===== */
-    #rec-indicator {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 20px;
-      border-radius: var(--radius);
-      background: var(--surface2);
-      margin-bottom: 20px;
-      font-size: 1.1rem;
-      font-weight: 700;
-      border: 2px solid var(--border);
-      transition: all 0.3s;
-      min-height: 72px;
-    }
-    #rec-indicator.recording { background: rgba(255,68,68,0.12); border-color: var(--red); color: var(--red); }
-    #rec-indicator.ready { color: var(--text-dim); }
-    #rec-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
-    #rec-indicator.recording #rec-dot { background: var(--red); animation: pulse 1s ease-in-out infinite; }
-    #rec-timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; letter-spacing: 0.05em; }
 
     /* ===== ボタン共通 ===== */
-    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
     .btn {
       flex: 1;
-      min-width: 130px;
-      padding: 14px 18px;
+      min-width: 120px;
+      padding: 13px 16px;
       border: none;
       border-radius: var(--radius);
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 7px;
       font-family: inherit;
     }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -157,15 +151,15 @@
     .btn-danger:not(:disabled):hover { background: rgba(255,68,68,0.25); transform: translateY(-1px); }
 
     /* ===== フォーム ===== */
-    .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-    label { font-size: 0.85rem; color: var(--text-dim); }
+    .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    label { font-size: 0.83rem; color: var(--text-dim); }
     select, input[type="text"] {
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
       padding: 10px 14px;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-family: inherit;
       width: 100%;
       outline: none;
@@ -177,8 +171,6 @@
     input[type="text"]::placeholder { color: var(--text-dim); }
 
     /* ===== ビデオ通話UI ===== */
-    #call-setup { }
-
     .room-input-row {
       display: flex;
       gap: 8px;
@@ -186,7 +178,7 @@
     }
     .room-input-row input {
       flex: 1;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -194,7 +186,7 @@
     .room-input-row .btn-ghost {
       flex: 0 0 auto;
       min-width: unset;
-      padding: 10px 14px;
+      padding: 10px 12px;
       font-size: 0.82rem;
       white-space: nowrap;
     }
@@ -205,236 +197,238 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 10px 14px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
     }
-    #invite-bar .invite-label {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
-    #invite-url-text {
-      flex: 1;
-      font-size: 0.82rem;
-      color: var(--accent);
-      word-break: break-all;
-      min-width: 0;
-    }
+    #invite-bar .invite-label { font-size: 0.78rem; color: var(--text-dim); flex-shrink: 0; }
+    #invite-url-text { flex: 1; font-size: 0.82rem; color: var(--accent); word-break: break-all; min-width: 0; }
     #btn-copy-url {
       flex-shrink: 0;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 0.82rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.15s;
-      white-space: nowrap;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 6px;
+      padding: 6px 12px; font-size: 0.82rem; font-weight: 700;
+      cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap;
     }
     #btn-copy-url:hover { background: var(--accent-hover); }
 
     /* ビデオグリッド */
     #video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      margin-bottom: 14px;
-      min-height: 160px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+      min-height: 140px;
     }
-
     .video-wrapper {
-      position: relative;
-      background: #000;
-      border-radius: 10px;
-      overflow: hidden;
-      aspect-ratio: 4/3;
-      border: 2px solid var(--border);
+      position: relative; background: #000;
+      border-radius: 10px; overflow: hidden;
+      aspect-ratio: 4/3; border: 2px solid var(--border);
     }
-    .video-wrapper.local-wrapper { border-color: var(--teal); }
+    .video-wrapper.local-wrapper  { border-color: var(--teal); }
     .video-wrapper.remote-wrapper { border-color: var(--border); }
-    .video-wrapper video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    /* 自分の映像は左右反転 */
+    .video-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
     .local-wrapper video { transform: scaleX(-1); }
 
     .video-label {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      background: rgba(0,0,0,0.65);
-      color: #fff;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      pointer-events: none;
+      position: absolute; bottom: 7px; left: 7px;
+      background: rgba(0,0,0,0.65); color: #fff;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 0.72rem; font-weight: 700; pointer-events: none;
     }
-    .video-wrapper.local-wrapper .video-label { background: rgba(0,188,212,0.75); }
+    .local-wrapper .video-label { background: rgba(0,188,212,0.75); }
 
     .video-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      color: var(--text-dim);
-      font-size: 0.85rem;
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; color: var(--text-dim); font-size: 0.83rem;
       background: var(--surface2);
     }
     .video-placeholder .avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
+      width: 44px; height: 44px; border-radius: 50%;
       background: var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
+      display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
     }
 
-    /* 通話中のメタ情報 */
     #call-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.82rem; color: var(--text-dim); margin-bottom: 10px;
     }
     #call-participants { font-weight: 700; color: var(--teal); }
-
-    /* 通話コントロール */
-    #call-controls .btn { min-width: 110px; padding: 12px 14px; font-size: 0.88rem; }
+    #call-controls .btn { min-width: 100px; padding: 11px 12px; font-size: 0.85rem; }
     .btn.muted { opacity: 0.55; }
 
     /* ===== 自動保存ログ ===== */
     #chunk-log {
-      max-height: 120px;
+      max-height: 100px;
       overflow-y: auto;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: var(--text-dim);
       display: flex;
       flex-direction: column;
       gap: 4px;
-      margin-top: 16px;
+      margin-top: 14px;
     }
     .log-entry {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 0;
-      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 0; border-bottom: 1px solid var(--border);
     }
     .log-entry .time { color: var(--accent); font-variant-numeric: tabular-nums; }
 
     /* ===== 録音ファイル一覧 ===== */
     #file-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 300px;
-      overflow-y: auto;
+      display: flex; flex-direction: column;
+      gap: 8px; max-height: 320px; overflow-y: auto;
     }
     .file-item {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .file-item.new-file { border-color: var(--green); animation: file-highlight 2s ease-out forwards; }
+    @keyframes file-highlight {
+      0%   { background: rgba(34,204,102,0.15); border-color: var(--green); }
+      100% { background: var(--surface2);       border-color: var(--border); }
     }
     .file-info { flex: 1; min-width: 0; }
-    .file-name { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .file-meta { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
-    .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .file-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-meta { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
+    .file-actions { display: flex; gap: 7px; flex-shrink: 0; }
     .btn-small {
-      padding: 6px 14px;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      transition: all 0.15s;
+      padding: 6px 12px; border: none; border-radius: 6px;
+      font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
     }
     .btn-dl { background: var(--accent); color: #fff; }
     .btn-dl:hover { background: var(--accent-hover); }
+    .btn-dl-now { background: var(--green); color: #000; }
+    .btn-dl-now:hover { background: #1aaa55; }
     audio {
-      width: 100%;
-      height: 36px;
-      margin-top: 8px;
-      border-radius: 6px;
-      background: var(--surface);
+      width: 100%; height: 34px; margin-top: 7px;
+      border-radius: 6px; background: var(--surface);
     }
     audio::-webkit-media-controls-panel { background: var(--surface2); }
 
-    /* ===== アップロード進捗 ===== */
-    .progress-wrap { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; margin-top: 12px; display: none; }
-    .progress-wrap.visible { display: block; }
-    .progress-bar { height: 100%; background: var(--accent); width: 0; transition: width 0.3s; border-radius: 999px; }
+    /* クラウドファイル一覧へのリンク */
+    .cloud-link-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+    .cloud-link-bar a {
+      color: var(--accent); text-decoration: none; font-weight: 700;
+      padding: 5px 12px; border: 1px solid var(--accent); border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .cloud-link-bar a:hover { background: rgba(108,99,255,0.15); }
 
-    .empty-state { text-align: center; padding: 32px; color: var(--text-dim); font-size: 0.9rem; }
+    /* ===== アップロードステータス ===== */
+    #upload-status-area {
+      margin-top: 12px; padding: 11px 14px;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface2); display: none;
+    }
+    #upload-status-area.visible { display: block; }
+    #upload-status-msg { font-size: 0.86rem; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .progress-wrap { height: 5px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .progress-bar  { height: 100%; background: var(--accent); width: 0; transition: width 0.3s; border-radius: 999px; }
+
+    .empty-state { text-align: center; padding: 28px; color: var(--text-dim); font-size: 0.88rem; }
 
     /* ===== トースト ===== */
     #toast {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
+      position: fixed; bottom: calc(var(--footer-h) + 12px); left: 50%;
       transform: translateX(-50%) translateY(100px);
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px 20px;
-      font-size: 0.9rem;
-      font-weight: 600;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 11px 18px;
+      font-size: 0.88rem; font-weight: 600;
       transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      z-index: 1000;
-      white-space: nowrap;
-      max-width: 90vw;
-      text-align: center;
+      z-index: 1000; white-space: nowrap; max-width: 90vw; text-align: center;
     }
     #toast.show { transform: translateX(-50%) translateY(0); }
     #toast.success { border-color: var(--green); color: var(--green); }
-    #toast.error { border-color: var(--red); color: var(--red); }
-    #toast.info { border-color: var(--accent); color: var(--accent); }
-
-    /* ===== レスポンシブ ===== */
-    @media (max-width: 600px) {
-      main { padding: 12px; gap: 16px; }
-      .card { padding: 16px; }
-      .btn { min-width: 100px; padding: 12px 12px; font-size: 0.88rem; }
-      #rec-timer { font-size: 1.2rem; }
-      #video-grid { grid-template-columns: 1fr 1fr; }
-      #call-controls .btn { min-width: 80px; font-size: 0.78rem; padding: 10px 8px; }
-    }
-    @media (max-width: 400px) {
-      #video-grid { grid-template-columns: 1fr; }
-    }
+    #toast.error   { border-color: var(--red);   color: var(--red);   }
+    #toast.info    { border-color: var(--accent); color: var(--accent); }
 
     /* ===== 台本エリア ===== */
+    /* エピソードバー */
+    #episode-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    #episode-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+    .ep-tab {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .ep-tab:hover { border-color: var(--accent); color: var(--text); }
+    .ep-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #btn-ep-add {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    #btn-ep-add:hover { border-color: var(--accent); color: var(--accent); }
+
+    #episode-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .ep-action-btn {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-dim);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .ep-action-btn:hover { border-color: var(--border); color: var(--text); background: var(--border); }
+    .ep-action-btn.danger:hover { border-color: var(--red); color: var(--red); background: rgba(255,68,68,0.1); }
+
     #script-textarea {
       width: 100%;
-      min-height: 280px;
+      min-height: 260px;
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
       padding: 14px;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       font-family: 'Hiragino Sans', 'Meiryo', 'Yu Gothic', sans-serif;
       line-height: 1.8;
       resize: vertical;
@@ -445,78 +439,96 @@
     #script-textarea::placeholder { color: var(--text-dim); opacity: 0.7; }
 
     .sync-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 0.78rem;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-weight: 600;
-      margin-left: 8px;
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.76rem; padding: 3px 9px; border-radius: 999px;
+      font-weight: 600; margin-left: 6px;
     }
     .sync-badge.offline { background: rgba(136,136,153,0.15); color: var(--text-dim); }
-    .sync-badge.syncing { background: rgba(255,170,0,0.15); color: var(--yellow); }
-    .sync-badge.synced  { background: rgba(34,204,102,0.15); color: var(--green); }
+    .sync-badge.syncing { background: rgba(255,170,0,0.15);   color: var(--yellow); }
+    .sync-badge.synced  { background: rgba(34,204,102,0.15);  color: var(--green);  }
 
-    #script-user-count {
-      font-size: 0.78rem;
-      color: var(--teal);
-      margin-left: 6px;
-    }
+    #script-user-count { font-size: 0.76rem; color: var(--teal); margin-left: 5px; }
 
-    /* ===== 台本タイピングインジケーター ===== */
     #script-typing-indicator {
-      min-height: 22px;
-      margin-top: 8px;
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      min-height: 20px; margin-top: 7px;
+      font-size: 0.78rem; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
     }
-    .typing-dots {
-      display: inline-flex;
-      gap: 3px;
-    }
+    .typing-dots { display: inline-flex; gap: 3px; }
     .typing-dots span {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--accent);
-      animation: typing-bounce 1.2s infinite;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent); animation: typing-bounce 1.2s infinite;
     }
     .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
     .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes typing-bounce {
       0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-      30% { transform: translateY(-4px); opacity: 1; }
+      30%            { transform: translateY(-4px); opacity: 1; }
     }
 
-    /* リモート更新フラッシュ */
     @keyframes script-flash {
       0%   { background: rgba(108,99,255,0.12); border-color: var(--accent); }
-      100% { background: var(--surface2);       border-color: var(--border);  }
+      100% { background: var(--surface2);       border-color: var(--border); }
     }
-    #script-textarea.remote-updated {
-      animation: script-flash 0.8s ease-out;
-    }
+    #script-textarea.remote-updated { animation: script-flash 0.8s ease-out; }
 
-    /* ===== アップロードステータスエリア ===== */
-    #upload-status-area {
-      margin-top: 14px;
-      padding: 12px 16px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface2);
-      display: none;
-    }
-    #upload-status-area.visible { display: block; }
-    #upload-status-msg {
-      font-size: 0.88rem;
+    /* ===== 固定録音フッター ===== */
+    #rec-footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--footer-h);
+      background: var(--surface);
+      border-top: 2px solid var(--border);
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
+      padding: 0 20px;
+      gap: 16px;
+      z-index: 500;
+    }
+    #rec-footer.recording {
+      border-top-color: var(--red);
+      background: color-mix(in srgb, var(--surface) 92%, var(--red) 8%);
+    }
+
+    #rec-footer-status {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+      flex: 1;
+    }
+    .rec-stat-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; white-space: nowrap;
+    }
+    .rec-stat-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-dim); flex-shrink: 0;
+    }
+    .rec-stat-dot.active   { background: var(--red);   animation: pulse 1s ease-in-out infinite; }
+    .rec-stat-dot.ok       { background: var(--green);  }
+    .rec-stat-dot.uploading{ background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+    .rec-stat-dot.warn     { background: var(--yellow); }
+
+    #rec-footer-center {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      flex-shrink: 0;
+    }
+    #rec-timer-footer {
+      font-size: 1.3rem; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.05em;
+      color: var(--red);
+    }
+
+    #rec-footer-btns {
+      display: flex; gap: 10px; flex-shrink: 0;
+    }
+    #rec-footer-btns .btn {
+      min-width: 0;
+      padding: 11px 18px;
+      font-size: 0.88rem;
+      flex: 0 0 auto;
     }
 
     /* ===== 2カラムレイアウト（通話中） ===== */
@@ -525,19 +537,36 @@
         max-width: 1440px;
         display: grid;
         grid-template-columns: 1fr 420px;
-        gap: 24px;
+        gap: 20px;
         align-items: start;
       }
-      main.in-call > #call-card     { grid-column: 1; grid-row: 1; }
+      main.in-call > #call-card      { grid-column: 1; grid-row: 1; }
       main.in-call > #recording-card { grid-column: 1; grid-row: 2; }
-      main.in-call > #files-card    { grid-column: 1; grid-row: 3; }
-      main.in-call > #script-card   {
-        grid-column: 2;
-        grid-row: 1 / span 3;
-        position: sticky;
-        top: 16px;
+      main.in-call > #files-card     { grid-column: 1; grid-row: 3; }
+      main.in-call > #script-card    {
+        grid-column: 2; grid-row: 1 / span 3;
+        position: sticky; top: 16px;
       }
-      main.in-call #script-textarea { min-height: 500px; }
+      main.in-call #script-textarea { min-height: 480px; }
+    }
+
+    /* ===== レスポンシブ ===== */
+    @media (max-width: 600px) {
+      main { padding: 10px; gap: 14px; }
+      .card { padding: 14px; }
+      .btn  { min-width: 90px; padding: 11px 10px; font-size: 0.85rem; }
+      #video-grid { grid-template-columns: 1fr 1fr; }
+      #call-controls .btn { min-width: 72px; font-size: 0.78rem; padding: 10px 8px; }
+      #rec-footer { padding: 0 12px; gap: 10px; }
+      #rec-footer-btns .btn { padding: 10px 14px; font-size: 0.82rem; }
+      #rec-timer-footer { font-size: 1.1rem; }
+      .rec-stat-row { font-size: 0.72rem; }
+      #episode-actions { gap: 4px; }
+      .ep-action-btn { padding: 4px 8px; font-size: 0.72rem; }
+    }
+    @media (max-width: 400px) {
+      #video-grid { grid-template-columns: 1fr; }
+      #rec-footer-status { display: none; }
     }
   </style>
 </head>
@@ -546,6 +575,7 @@
 <header>
   <span class="icon">🎙️</span>
   <h1>ポッドキャスト収録・ビデオ通話</h1>
+  <a href="/recordings.html" class="header-link">☁ クラウド録音一覧</a>
 </header>
 
 <div id="status-bar">
@@ -554,16 +584,16 @@
     <span id="label-mic">マイク：未接続</span>
   </div>
   <div class="status-item">
-    <div class="dot" id="dot-rec"></div>
-    <span id="label-rec">録音：停止中</span>
+    <div class="dot" id="dot-local-rec"></div>
+    <span id="label-local-rec">ローカル録音：停止中</span>
+  </div>
+  <div class="status-item">
+    <div class="dot" id="dot-cloud"></div>
+    <span id="label-cloud">クラウド：待機中</span>
   </div>
   <div class="status-item">
     <div class="dot" id="dot-call"></div>
     <span id="label-call">通話：未接続</span>
-  </div>
-  <div class="status-item">
-    <div class="dot" id="dot-server"></div>
-    <span id="label-server">サーバー：確認中</span>
   </div>
 </div>
 
@@ -582,8 +612,8 @@
           <button class="btn btn-ghost" id="btn-random-room">ランダム</button>
         </div>
       </div>
-      <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:16px;">
-        同じルームIDを入力するだけで、URLの共有なしでも通話できます。
+      <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:14px;">
+        同じルームIDを入力するだけで通話できます。
       </p>
       <div class="btn-row">
         <button class="btn btn-teal" id="btn-join-call">📹 通話に参加</button>
@@ -592,29 +622,24 @@
 
     <!-- 通話中 -->
     <div id="call-active" style="display:none">
-      <!-- 招待URL -->
       <div id="invite-bar">
         <span class="invite-label">招待URL</span>
         <span id="invite-url-text"></span>
         <button id="btn-copy-url">コピー</button>
       </div>
 
-      <!-- 参加者数・ルームID表示 -->
       <div id="call-meta">
         <span id="call-participants">参加者：自分のみ</span>
         <span id="call-room-label" style="color:var(--text-dim)"></span>
       </div>
 
-      <!-- ビデオグリッド -->
       <div id="video-grid">
-        <!-- ローカル映像 -->
         <div class="video-wrapper local-wrapper" id="local-wrapper">
           <video id="local-video" autoplay muted playsinline></video>
           <div class="video-label">自分</div>
         </div>
       </div>
 
-      <!-- 通話コントロール -->
       <div class="btn-row" id="call-controls">
         <button class="btn btn-ghost" id="btn-mute-audio">🎙️ ミュート</button>
         <button class="btn btn-ghost" id="btn-mute-video">📹 カメラOFF</button>
@@ -623,9 +648,9 @@
     </div>
   </div>
 
-  <!-- ===== 録音 ===== -->
+  <!-- ===== 録音設定 ===== -->
   <div class="card" id="recording-card">
-    <div class="card-title">🎙️ 録音</div>
+    <div class="card-title">🎙️ 録音設定</div>
 
     <div class="form-row">
       <label for="mic-select">使用するマイク</label>
@@ -634,22 +659,15 @@
       </select>
     </div>
 
-    <div id="rec-indicator" class="ready">
-      <div id="rec-dot"></div>
-      <span id="rec-status-text">録音停止中</span>
-      <span id="rec-timer" style="display:none">00:00</span>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-record" id="btn-start">⏺ 録音開始</button>
-      <button class="btn btn-stop" id="btn-stop" disabled>⏹ 録音停止</button>
-    </div>
+    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0;">
+      録音ボタンは画面下のバーから操作できます。ローカルとクラウドへの録音を同時に開始・停止します。
+    </p>
 
     <div id="chunk-log"></div>
 
     <div id="upload-status-area">
       <div id="upload-status-msg"></div>
-      <div class="progress-wrap visible" id="upload-progress">
+      <div class="progress-wrap">
         <div class="progress-bar" id="progress-bar"></div>
       </div>
     </div>
@@ -657,22 +675,34 @@
 
   <!-- ===== 録音ファイル一覧 ===== -->
   <div class="card" id="files-card">
-    <div class="card-title">📁 録音ファイル</div>
+    <div class="card-title">📁 ローカル録音ファイル</div>
+    <div class="cloud-link-bar">
+      <span style="font-size:0.82rem;color:var(--text-dim);">サーバー保存ファイルはこちら</span>
+      <a href="/recordings.html" target="_blank">☁ クラウド録音一覧を開く</a>
+    </div>
     <div id="file-list">
       <div class="empty-state">録音を開始すると、ここにファイルが表示されます</div>
     </div>
   </div>
 
-  <!-- ===== 台本・メモ ===== -->
+  <!-- ===== 台本・エピソード管理 ===== -->
   <div class="card" id="script-card">
     <div class="card-title">
-      📝 台本・メモ
+      📝 台本・エピソード管理
       <span class="sync-badge offline" id="sync-badge">ローカルのみ</span>
       <span id="script-user-count" style="display:none"></span>
     </div>
-    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:12px;" id="script-hint">
-      通話ルームに参加すると、全参加者がリアルタイムで同時編集できます。
-    </p>
+
+    <!-- エピソードバー -->
+    <div id="episode-bar">
+      <div id="episode-tabs"></div>
+      <button id="btn-ep-add" title="エピソードを追加">+ EP追加</button>
+      <div id="episode-actions">
+        <button class="ep-action-btn" id="btn-ep-rename" title="選択中のエピソード名を変更">✏ 名前変更</button>
+        <button class="ep-action-btn danger" id="btn-ep-delete" title="選択中のエピソードを削除">🗑 削除</button>
+      </div>
+    </div>
+
     <textarea
       id="script-textarea"
       placeholder="台本やメモをここに入力してください。&#10;&#10;例：&#10;【オープニング】&#10;「こんにちは、〇〇ポッドキャストへようこそ」&#10;&#10;【トピック1】&#10;・..."
@@ -681,6 +711,29 @@
   </div>
 
 </main>
+
+<!-- ===== 固定録音フッター ===== -->
+<div id="rec-footer">
+  <div id="rec-footer-status">
+    <div class="rec-stat-row">
+      <div class="rec-stat-dot" id="rec-dot-local"></div>
+      <span id="rec-label-local">ローカル録音：停止中</span>
+    </div>
+    <div class="rec-stat-row">
+      <div class="rec-stat-dot" id="rec-dot-cloud"></div>
+      <span id="rec-label-cloud">クラウド：待機中</span>
+    </div>
+  </div>
+
+  <div id="rec-footer-center">
+    <div id="rec-timer-footer" style="display:none">00:00</div>
+  </div>
+
+  <div id="rec-footer-btns">
+    <button class="btn btn-record" id="btn-start">⏺ 録音開始</button>
+    <button class="btn btn-stop" id="btn-stop" disabled>⏹ 停止・保存</button>
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -694,7 +747,7 @@ const $ = id => document.getElementById(id);
 // ===== 共通 UI ヘルパー =====
 function setDot(id, cls) {
   const dot = $(`dot-${id}`);
-  dot.className = 'dot' + (cls ? ` ${cls}` : '');
+  if (dot) dot.className = 'dot' + (cls ? ` ${cls}` : '');
 }
 
 let toastTimer;
@@ -736,7 +789,7 @@ const STUN = {
 
 const ws = {
   socket: null,
-  peers: {},          // peerId -> RTCPeerConnection
+  peers: {},
   localStream: null,
   roomId: null,
   inCall: false,
@@ -756,7 +809,6 @@ function initSocket() {
   ws.socket.on('disconnect', () => {
     setDot('call', 'warn');
     $('label-call').textContent = '通話：切断（再接続中）';
-    // 録音は独立しているので影響なし
   });
 
   ws.socket.on('connect_error', () => {
@@ -764,7 +816,6 @@ function initSocket() {
     $('label-call').textContent = '通話：接続エラー';
   });
 
-  // 参加時点での既存メンバーリスト → こちらからofferを送る
   ws.socket.on('room-peers', async (peers) => {
     for (const peerId of peers) {
       await createPeer(peerId, true);
@@ -772,14 +823,11 @@ function initSocket() {
     updateParticipants();
   });
 
-  // 自分が参加した後に来た新規メンバー → 向こうからofferが来る
   ws.socket.on('peer-joined', (peerId) => {
     console.log(`[WebRTC] 新規参加: ${peerId.slice(0,8)}`);
-    // offer が 'offer' イベントで届くまで待機
     updateParticipants();
   });
 
-  // Offer 受信 → answer を返す
   ws.socket.on('offer', async ({ from, offer }) => {
     let pc = ws.peers[from];
     if (!pc) pc = await createPeer(from, false);
@@ -793,7 +841,6 @@ function initSocket() {
     }
   });
 
-  // Answer 受信
   ws.socket.on('answer', async ({ from, answer }) => {
     const pc = ws.peers[from];
     if (pc) {
@@ -805,19 +852,15 @@ function initSocket() {
     }
   });
 
-  // ICE candidate 受信
   ws.socket.on('ice-candidate', async ({ from, candidate }) => {
     const pc = ws.peers[from];
     if (pc && candidate) {
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        // 無視（通常の動作内）
-      }
+      } catch (e) { /* 無視 */ }
     }
   });
 
-  // 参加者退出
   ws.socket.on('peer-left', (peerId) => {
     removePeer(peerId);
     typingPeers.delete(peerId);
@@ -826,23 +869,33 @@ function initSocket() {
     showToast('参加者が退出しました', 'info');
   });
 
-  // 台本リアルタイム同期
-  ws.socket.on('script-content', (content) => {
-    const ta = $('script-textarea');
-    const hadFocus = ta === document.activeElement;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    ta.value = content;
-    if (hadFocus) ta.setSelectionRange(start, end);
+  // ===== エピソード同期 =====
+  ws.socket.on('episodes-sync', (data) => {
+    handleEpisodesSync(data);
     updateSyncBadge('synced');
-    // フラッシュアニメーション
-    ta.classList.remove('remote-updated');
-    void ta.offsetWidth; // reflow
-    ta.classList.add('remote-updated');
-    setTimeout(() => ta.classList.remove('remote-updated'), 800);
   });
 
-  // タイピングインジケーター受信
+  ws.socket.on('episode-updated', ({ id, content }) => {
+    const ep = episodeState.episodes.find(e => e.id === id);
+    if (ep) {
+      ep.content = content;
+      // アクティブエピソードの場合はtextareaを更新
+      if (episodeState.activeId === id) {
+        const ta = $('script-textarea');
+        const hadFocus = ta === document.activeElement;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        ta.value = content;
+        if (hadFocus) ta.setSelectionRange(start, end);
+        ta.classList.remove('remote-updated');
+        void ta.offsetWidth;
+        ta.classList.add('remote-updated');
+        setTimeout(() => ta.classList.remove('remote-updated'), 800);
+      }
+    }
+    updateSyncBadge('synced');
+  });
+
   ws.socket.on('peer-typing', ({ peerId, isTyping }) => {
     if (isTyping) typingPeers.add(peerId);
     else typingPeers.delete(peerId);
@@ -855,42 +908,28 @@ async function createPeer(peerId, isInitiator) {
   const pc = new RTCPeerConnection(STUN);
   ws.peers[peerId] = pc;
 
-  // ローカルトラックを追加
   if (ws.localStream) {
-    ws.localStream.getTracks().forEach(track => {
-      pc.addTrack(track, ws.localStream);
-    });
+    ws.localStream.getTracks().forEach(track => pc.addTrack(track, ws.localStream));
   }
 
-  // リモート映像受信
   pc.ontrack = (event) => {
     addRemoteVideo(peerId, event.streams[0]);
     updateParticipants();
   };
 
-  // ICE candidate 送信
   pc.onicecandidate = ({ candidate }) => {
-    if (candidate && ws.socket) {
-      ws.socket.emit('ice-candidate', { to: peerId, candidate });
-    }
+    if (candidate && ws.socket) ws.socket.emit('ice-candidate', { to: peerId, candidate });
   };
 
-  // 接続状態監視
   pc.onconnectionstatechange = () => {
-    const state = pc.connectionState;
-    console.log(`[WebRTC] ${peerId.slice(0,8)} → ${state}`);
-    if (state === 'failed') {
-      // ICE再起動を試みる
+    if (pc.connectionState === 'failed') {
       try { pc.restartIce(); } catch(e) {}
     }
   };
 
   if (isInitiator) {
     try {
-      const offer = await pc.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true,
-      });
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await pc.setLocalDescription(offer);
       ws.socket.emit('offer', { to: peerId, offer });
     } catch (e) {
@@ -901,13 +940,9 @@ async function createPeer(peerId, isInitiator) {
   return pc;
 }
 
-// ===== リモート映像追加 =====
 function addRemoteVideo(peerId, stream) {
   const existing = $(`video-${peerId}`);
-  if (existing) {
-    existing.srcObject = stream;
-    return;
-  }
+  if (existing) { existing.srcObject = stream; return; }
 
   const wrapper = document.createElement('div');
   wrapper.className = 'video-wrapper remote-wrapper';
@@ -915,9 +950,7 @@ function addRemoteVideo(peerId, stream) {
 
   const video = document.createElement('video');
   video.id = `video-${peerId}`;
-  video.autoplay = true;
-  video.playsinline = true;
-  video.srcObject = stream;
+  video.autoplay = true; video.playsinline = true; video.srcObject = stream;
 
   const label = document.createElement('div');
   label.className = 'video-label';
@@ -928,16 +961,13 @@ function addRemoteVideo(peerId, stream) {
   $('video-grid').appendChild(wrapper);
 }
 
-// ===== PeerConnection 削除 =====
 function removePeer(peerId) {
   const pc = ws.peers[peerId];
   if (pc) { pc.close(); delete ws.peers[peerId]; }
-
   const wrapper = $(`wrapper-${peerId}`);
   if (wrapper) wrapper.remove();
 }
 
-// ===== 参加者数更新 =====
 function updateParticipants() {
   const count = Object.keys(ws.peers).length + 1;
   $('call-participants').textContent = `参加者：${count}人`;
@@ -951,16 +981,12 @@ function updateParticipants() {
 // ===== 通話参加 =====
 async function joinCall() {
   const roomId = $('room-input').value.trim().toUpperCase();
-  if (!roomId) {
-    showToast('ルームIDを入力してください', 'error');
-    return;
-  }
+  if (!roomId) { showToast('ルームIDを入力してください', 'error'); return; }
 
   try {
     $('btn-join-call').disabled = true;
     $('btn-join-call').textContent = '接続中...';
 
-    // カメラ+マイク取得（カメラなければ音声のみ）
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -980,11 +1006,9 @@ async function joinCall() {
     ws.roomId = roomId;
     ws.inCall = true;
 
-    // ローカル映像表示（videoTrackがある場合のみ）
     const localVid = $('local-video');
     localVid.srcObject = stream;
 
-    // カメラがなければローカルビデオにプレースホルダー
     if (!stream.getVideoTracks().length) {
       $('local-wrapper').innerHTML = `
         <div class="video-placeholder">
@@ -995,30 +1019,22 @@ async function joinCall() {
       `;
     }
 
-    // ルーム参加
     ws.socket.emit('join-room', roomId);
 
-    // 招待URL生成
     const url = new URL(window.location.href);
     url.searchParams.set('room', roomId);
     history.pushState({}, '', url);
     $('invite-url-text').textContent = url.toString();
     $('call-room-label').textContent = `ルームID: ${roomId}`;
 
-    // UI切替
     $('call-setup').style.display = 'none';
     $('call-active').style.display = 'block';
-
     setDot('call', 'call-active');
     $('label-call').textContent = `通話中：${roomId}`;
-
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
 
-    // 2カラムレイアウトに切り替え
     document.querySelector('main').classList.add('in-call');
-    updateSyncBadge('synced');
-    $('script-hint').textContent = '全参加者とリアルタイム同時編集中。誰かが入力すると即座に全員の画面に反映されます。';
 
   } catch (err) {
     $('btn-join-call').disabled = false;
@@ -1029,45 +1045,34 @@ async function joinCall() {
 
 // ===== 通話終了 =====
 function leaveCall() {
-  // 全PeerConnection を閉じる
   Object.keys(ws.peers).forEach(removePeer);
   ws.peers = {};
 
-  // ローカルストリーム停止
   if (ws.localStream) {
     ws.localStream.getTracks().forEach(t => t.stop());
     ws.localStream = null;
   }
 
-  // リモート映像削除
   document.querySelectorAll('.remote-wrapper').forEach(el => el.remove());
-
-  // ローカルビデオを元に戻す
   $('local-wrapper').innerHTML = `
     <video id="local-video" autoplay muted playsinline></video>
     <div class="video-label">自分</div>
   `;
 
-  // サーバーへ退出通知
   if (ws.socket) ws.socket.emit('leave-room');
-
   ws.roomId = null;
   ws.inCall = false;
   ws.audioMuted = false;
   ws.videoMuted = false;
 
-  // URLからroomを除去
   const url = new URL(window.location.href);
   url.searchParams.delete('room');
   history.pushState({}, '', url);
 
-  // UI切替
   $('call-setup').style.display = 'block';
   $('call-active').style.display = 'none';
   $('btn-join-call').disabled = false;
   $('btn-join-call').textContent = '📹 通話に参加';
-
-  // ミュートボタンをリセット
   $('btn-mute-audio').textContent = '🎙️ ミュート';
   $('btn-mute-audio').classList.remove('muted');
   $('btn-mute-video').textContent = '📹 カメラOFF';
@@ -1076,21 +1081,19 @@ function leaveCall() {
   setDot('call', 'ok');
   $('label-call').textContent = '通話：接続OK';
   showToast('通話を終了しました', 'info');
-
-  // 1カラムレイアウトに戻す
   document.querySelector('main').classList.remove('in-call');
   updateSyncBadge('offline');
 
-  // タイピング状態・参加者数表示リセット
   if (ws.socket) ws.socket.emit('script-typing', false);
   clearTimeout(typingStopTimer);
   typingPeers.clear();
   updateTypingIndicator();
   $('script-user-count').style.display = 'none';
-  $('script-hint').textContent = '通話ルームに参加すると、全参加者がリアルタイムで同時編集できます。';
+
+  // ローカルに戻す
+  loadLocalEpisodes();
 }
 
-// ===== マイクトグル =====
 function toggleAudio() {
   if (!ws.localStream) return;
   ws.audioMuted = !ws.audioMuted;
@@ -1100,7 +1103,6 @@ function toggleAudio() {
   btn.classList.toggle('muted', ws.audioMuted);
 }
 
-// ===== カメラトグル =====
 function toggleVideo() {
   if (!ws.localStream) return;
   ws.videoMuted = !ws.videoMuted;
@@ -1110,19 +1112,16 @@ function toggleVideo() {
   btn.classList.toggle('muted', ws.videoMuted);
 }
 
-// ===== ランダムルームID =====
 function generateRoomId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-// ===== URL からルームID を取得して自動入力 =====
 function loadRoomFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const room = params.get('room');
   if (room) {
     $('room-input').value = room.toUpperCase();
-    // 少し待ってから自動参加
     setTimeout(() => {
       showToast(`ルーム「${room}」の招待URLです。参加ボタンを押してください`, 'info');
     }, 800);
@@ -1131,22 +1130,174 @@ function loadRoomFromUrl() {
   }
 }
 
-// ===== イベント =====
 $('btn-join-call').addEventListener('click', joinCall);
 $('btn-leave-call').addEventListener('click', leaveCall);
 $('btn-mute-audio').addEventListener('click', toggleAudio);
 $('btn-mute-video').addEventListener('click', toggleVideo);
-$('btn-random-room').addEventListener('click', () => {
-  $('room-input').value = generateRoomId();
-});
+$('btn-random-room').addEventListener('click', () => { $('room-input').value = generateRoomId(); });
 $('btn-copy-url').addEventListener('click', () => {
   navigator.clipboard.writeText($('invite-url-text').textContent)
     .then(() => showToast('URLをコピーしました', 'success'))
     .catch(() => showToast('コピーに失敗しました', 'error'));
 });
-$('room-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') joinCall();
-});
+$('room-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinCall(); });
+
+// =========================================================
+// ===== 台本・エピソード管理 =====
+// =========================================================
+
+const LS_EPISODES_KEY = 'podcast-episodes-v2';
+
+// エピソード状態
+const episodeState = {
+  episodes: [],  // [{id, name, content}]
+  activeId: null,
+};
+
+function genLocalId() {
+  return 'l_' + Math.random().toString(36).slice(2, 10);
+}
+
+function getActiveEpisode() {
+  return episodeState.episodes.find(e => e.id === episodeState.activeId) || episodeState.episodes[0] || null;
+}
+
+// ローカルストレージ保存
+function saveLocalEpisodes() {
+  if (ws.inCall) return; // 通話中はサーバーが管理
+  try {
+    localStorage.setItem(LS_EPISODES_KEY, JSON.stringify({
+      episodes: episodeState.episodes,
+      activeId: episodeState.activeId,
+    }));
+  } catch {}
+}
+
+// ローカルストレージ読み込み
+function loadLocalEpisodes() {
+  try {
+    const saved = localStorage.getItem(LS_EPISODES_KEY);
+    if (saved) {
+      const data = JSON.parse(saved);
+      episodeState.episodes = data.episodes || [];
+      episodeState.activeId = data.activeId || null;
+    }
+  } catch {}
+
+  if (episodeState.episodes.length === 0) {
+    const ep = { id: genLocalId(), name: 'EP1', content: '' };
+    episodeState.episodes = [ep];
+    episodeState.activeId = ep.id;
+  }
+  if (!episodeState.episodes.find(e => e.id === episodeState.activeId)) {
+    episodeState.activeId = episodeState.episodes[0].id;
+  }
+  renderEpisodeTabs();
+  renderActiveEpisode();
+}
+
+// サーバーからの全エピソード同期
+function handleEpisodesSync(data) {
+  episodeState.episodes = data.list || [];
+  episodeState.activeId = data.activeId || (episodeState.episodes[0] && episodeState.episodes[0].id);
+  renderEpisodeTabs();
+  renderActiveEpisode();
+}
+
+// タブを描画
+function renderEpisodeTabs() {
+  const tabsEl = $('episode-tabs');
+  tabsEl.innerHTML = '';
+  episodeState.episodes.forEach(ep => {
+    const btn = document.createElement('button');
+    btn.className = 'ep-tab' + (ep.id === episodeState.activeId ? ' active' : '');
+    btn.textContent = ep.name;
+    btn.dataset.id = ep.id;
+    btn.addEventListener('click', () => selectEpisode(ep.id));
+    tabsEl.appendChild(btn);
+  });
+}
+
+// アクティブエピソードの内容をtextareaに反映
+function renderActiveEpisode() {
+  const ep = getActiveEpisode();
+  $('script-textarea').value = ep ? ep.content : '';
+}
+
+// エピソード選択
+function selectEpisode(id) {
+  // 現在のテキストを保存
+  const current = getActiveEpisode();
+  if (current) current.content = $('script-textarea').value;
+
+  episodeState.activeId = id;
+  renderEpisodeTabs();
+  renderActiveEpisode();
+  saveLocalEpisodes();
+
+  if (ws.inCall && ws.socket) {
+    ws.socket.emit('episode-select', { id });
+  }
+}
+
+// エピソード追加
+function addEpisode() {
+  const epNum = episodeState.episodes.length + 1;
+  const name = `EP${epNum}`;
+
+  if (ws.inCall && ws.socket) {
+    ws.socket.emit('episode-create', { name });
+  } else {
+    const ep = { id: genLocalId(), name, content: '' };
+    episodeState.episodes.push(ep);
+    episodeState.activeId = ep.id;
+    renderEpisodeTabs();
+    renderActiveEpisode();
+    saveLocalEpisodes();
+  }
+}
+
+// エピソード名変更
+function renameEpisode() {
+  const ep = getActiveEpisode();
+  if (!ep) return;
+  const newName = prompt('エピソード名を入力してください:', ep.name);
+  if (!newName || !newName.trim()) return;
+  const name = newName.trim().slice(0, 30);
+
+  if (ws.inCall && ws.socket) {
+    ws.socket.emit('episode-rename', { id: ep.id, name });
+  } else {
+    ep.name = name;
+    renderEpisodeTabs();
+    saveLocalEpisodes();
+  }
+}
+
+// エピソード削除
+function deleteEpisode() {
+  if (episodeState.episodes.length <= 1) {
+    showToast('エピソードは最低1つ必要です', 'error');
+    return;
+  }
+  const ep = getActiveEpisode();
+  if (!ep) return;
+  if (!confirm(`「${ep.name}」を削除しますか？`)) return;
+
+  if (ws.inCall && ws.socket) {
+    ws.socket.emit('episode-delete', { id: ep.id });
+  } else {
+    episodeState.episodes = episodeState.episodes.filter(e => e.id !== ep.id);
+    episodeState.activeId = episodeState.episodes[0].id;
+    renderEpisodeTabs();
+    renderActiveEpisode();
+    saveLocalEpisodes();
+  }
+}
+
+$('btn-ep-add').addEventListener('click', addEpisode);
+$('btn-ep-rename').addEventListener('click', renameEpisode);
+$('btn-ep-delete').addEventListener('click', deleteEpisode);
 
 // ===== 台本リアルタイム同期 =====
 function updateSyncBadge(state) {
@@ -1156,26 +1307,29 @@ function updateSyncBadge(state) {
   badge.textContent = labels[state] || state;
 }
 
-// タイピングインジケーター管理
 const typingPeers = new Set();
 let typingStopTimer = null;
 
 function updateTypingIndicator() {
   const el = $('script-typing-indicator');
   const count = typingPeers.size;
-  if (count === 0 || !ws.inCall) {
-    el.innerHTML = '';
-    return;
-  }
+  if (count === 0 || !ws.inCall) { el.innerHTML = ''; return; }
   const text = count === 1 ? '1人が編集中' : `${count}人が編集中`;
   el.innerHTML = `<span>${text}</span><div class="typing-dots"><span></span><span></span><span></span></div>`;
 }
 
 let scriptDebounce = null;
 $('script-textarea').addEventListener('input', () => {
-  if (!ws.roomId) return;
+  // 現在のエピソードに反映
+  const ep = getActiveEpisode();
+  if (ep) ep.content = $('script-textarea').value;
 
-  // タイピング開始を通知
+  if (!ws.inCall || !ws.roomId) {
+    saveLocalEpisodes();
+    return;
+  }
+
+  // タイピング通知
   if (ws.socket) ws.socket.emit('script-typing', true);
   clearTimeout(typingStopTimer);
   typingStopTimer = setTimeout(() => {
@@ -1185,13 +1339,15 @@ $('script-textarea').addEventListener('input', () => {
   clearTimeout(scriptDebounce);
   updateSyncBadge('syncing');
   scriptDebounce = setTimeout(() => {
-    ws.socket.emit('script-update', { content: $('script-textarea').value });
+    if (ep && ws.socket) {
+      ws.socket.emit('episode-update', { id: ep.id, content: ep.content });
+    }
     updateSyncBadge('synced');
-  }, 150); // 400ms → 150ms に短縮
+  }, 150);
 });
 
 // =========================================================
-// ===== 録音機能（ステップ1・独立動作）=====
+// ===== 録音機能 =====
 // =========================================================
 
 const state = {
@@ -1207,14 +1363,11 @@ const state = {
   mimeType: '',
 };
 
-const btnStart   = $('btn-start');
-const btnStop    = $('btn-stop');
-const micSelect  = $('mic-select');
-const recIndicator = $('rec-indicator');
-const recText    = $('rec-status-text');
-const recTimer   = $('rec-timer');
-const chunkLog   = $('chunk-log');
-const fileList   = $('file-list');
+const btnStart    = $('btn-start');
+const btnStop     = $('btn-stop');
+const micSelect   = $('mic-select');
+const chunkLog    = $('chunk-log');
+const fileList    = $('file-list');
 
 async function loadMics() {
   try {
@@ -1274,9 +1427,14 @@ async function startRecording() {
     setRecordingUI(true);
     startTimer();
     state.chunkInterval = setInterval(saveChunk, 30000);
-    setDot('rec', 'active');
-    $('label-rec').textContent = '録音：収録中';
-    showToast('録音を開始しました', 'success');
+
+    // ステータスバー更新
+    setDot('local-rec', 'active');
+    $('label-local-rec').textContent = 'ローカル録音：収録中';
+    // フッターステータス更新
+    setFooterStatus('local', 'active', 'ローカル録音：収録中');
+
+    showToast('録音を開始しました（ローカル + クラウド）', 'success');
   } catch (err) {
     showToast(`録音開始エラー: ${err.message}`, 'error');
   }
@@ -1290,8 +1448,11 @@ function stopRecording() {
   state.stream?.getTracks().forEach(t => t.stop());
   state.isRecording = false;
   setRecordingUI(false);
-  setDot('rec', '');
-  $('label-rec').textContent = '録音：停止中';
+
+  // ステータスバー更新
+  setDot('local-rec', '');
+  $('label-local-rec').textContent = 'ローカル録音：停止中';
+  setFooterStatus('local', '', 'ローカル録音：停止中');
 }
 
 function finalizeRecording() {
@@ -1300,10 +1461,8 @@ function finalizeRecording() {
   const blob = new Blob(state.chunks, { type: state.mimeType || 'audio/webm' });
   const ts = formatDatetime(new Date());
   const filename = `録音_${ts}.${ext}`;
-  addLocalFile(blob, filename);
+  addLocalFile(blob, filename, true);
   state.chunks = [];
-  showToast('録音を保存しました。サーバーへ自動送信中...', 'info');
-  // 録音停止後に自動アップロード（失敗してもローカルデータは残る）
   uploadToServer(blob, filename);
 }
 
@@ -1316,7 +1475,7 @@ function saveChunk() {
   const blob = new Blob(snap, { type: state.mimeType || 'audio/webm' });
   const ts = formatDatetime(new Date());
   const filename = `録音_${ts}_チャンク${state.chunkCount}.${ext}`;
-  addLocalFile(blob, filename);
+  addLocalFile(blob, filename, false);
   uploadToServer(blob, filename);
   const entry = document.createElement('div');
   entry.className = 'log-entry';
@@ -1324,9 +1483,10 @@ function saveChunk() {
   chunkLog.insertBefore(entry, chunkLog.firstChild);
 }
 
-function addLocalFile(blob, filename) {
+// isLatest=true のとき「PCに保存」ボタンを強調
+function addLocalFile(blob, filename, isLatest) {
   const url = URL.createObjectURL(blob);
-  state.localFiles.unshift({ blob, url, filename, size: blob.size, date: new Date() });
+  state.localFiles.unshift({ blob, url, filename, size: blob.size, date: new Date(), isNew: isLatest });
   renderFileList();
 }
 
@@ -1338,7 +1498,7 @@ function renderFileList() {
   fileList.innerHTML = '';
   state.localFiles.forEach((f, i) => {
     const item = document.createElement('div');
-    item.className = 'file-item';
+    item.className = 'file-item' + (f.isNew ? ' new-file' : '');
     item.innerHTML = `
       <div class="file-info">
         <div class="file-name">${f.filename}</div>
@@ -1346,11 +1506,14 @@ function renderFileList() {
         <audio controls src="${f.url}"></audio>
       </div>
       <div class="file-actions">
-        <button class="btn-small btn-dl" onclick="downloadFile(${i})">⬇ 保存</button>
-        <button class="btn-small btn-dl" style="background:#444" onclick="uploadFile(${i})">☁ 送信</button>
+        <button class="btn-small ${f.isNew ? 'btn-dl-now' : 'btn-dl'}" onclick="downloadFile(${i})">
+          ${f.isNew ? '⬇ PCに保存' : '⬇ 保存'}
+        </button>
       </div>
     `;
     fileList.appendChild(item);
+    // isNew フラグをリセット（ハイライトは一度だけ）
+    f.isNew = false;
   });
 }
 
@@ -1359,10 +1522,6 @@ function downloadFile(index) {
   const a = document.createElement('a');
   a.href = f.url; a.download = f.filename; a.click();
 }
-function uploadFile(index) {
-  const f = state.localFiles[index];
-  uploadToServer(f.blob, f.filename);
-}
 
 async function uploadToServer(blob, filename) {
   const statusArea  = $('upload-status-area');
@@ -1370,8 +1529,13 @@ async function uploadToServer(blob, filename) {
   const progressBar = $('progress-bar');
 
   statusArea.classList.add('visible');
-  statusMsg.innerHTML = `<span>⬆️</span><span>「${filename}」をサーバーへ送信中...</span>`;
+  statusMsg.innerHTML = `<span>⬆️</span><span>「${filename}」をクラウドへ送信中...</span>`;
   progressBar.style.width = '10%';
+
+  // クラウドステータス更新
+  setDot('cloud', 'uploading');
+  $('label-cloud').textContent = 'クラウド：送信中...';
+  setFooterStatus('cloud', 'uploading', 'クラウド：送信中...');
 
   try {
     const formData = new FormData();
@@ -1389,30 +1553,33 @@ async function uploadToServer(blob, filename) {
       xhr.send(formData);
     });
     progressBar.style.width = '100%';
-    statusMsg.innerHTML = `<span style="color:var(--green)">✓</span><span style="color:var(--green)">サーバーへの送信完了：${filename}</span>`;
-    setTimeout(() => {
-      progressBar.style.width = '0';
-      statusArea.classList.remove('visible');
-    }, 4000);
-    setDot('server', 'ok');
-    $('label-server').textContent = 'サーバー：接続OK';
+    statusMsg.innerHTML = `<span style="color:var(--green)">✓</span><span style="color:var(--green)">クラウド送信完了：${filename}</span>`;
+    setTimeout(() => { progressBar.style.width = '0'; statusArea.classList.remove('visible'); }, 4000);
+
+    setDot('cloud', 'ok');
+    $('label-cloud').textContent = 'クラウド：送信完了';
+    setFooterStatus('cloud', 'ok', 'クラウド：送信完了');
+    showToast('クラウドへの保存が完了しました', 'success');
   } catch (err) {
     progressBar.style.width = '0';
-    statusMsg.innerHTML = `<span style="color:var(--yellow)">⚠️</span><span style="color:var(--yellow)">送信失敗（ローカルに保存済み）：${err.message}</span>`;
+    statusMsg.innerHTML = `<span style="color:var(--yellow)">⚠️</span><span style="color:var(--yellow)">クラウド送信失敗（ローカルに保存済み）：${err.message}</span>`;
     setTimeout(() => { statusArea.classList.remove('visible'); }, 6000);
-    console.warn('アップロード失敗（ローカル保存は継続）:', err.message);
-    setDot('server', 'warn');
-    $('label-server').textContent = 'サーバー：送信失敗（録音継続中）';
+
+    setDot('cloud', 'warn');
+    $('label-cloud').textContent = 'クラウド：送信失敗';
+    setFooterStatus('cloud', 'warn', 'クラウド：送信失敗');
+    console.warn('アップロード失敗:', err.message);
   }
 }
 
 function startTimer() {
-  recTimer.style.display = 'inline';
+  const timerEl = $('rec-timer-footer');
+  timerEl.style.display = 'block';
   state.timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
     const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
     const s = String(elapsed % 60).padStart(2, '0');
-    recTimer.textContent = `${m}:${s}`;
+    timerEl.textContent = `${m}:${s}`;
   }, 500);
 }
 
@@ -1420,21 +1587,43 @@ function setRecordingUI(recording) {
   btnStart.disabled = recording;
   btnStop.disabled  = !recording;
   micSelect.disabled = recording;
-  recIndicator.className = recording ? 'recording' : 'ready';
-  recText.textContent = recording ? '● 録音中' : '録音停止中';
-  if (!recording) { recTimer.style.display = 'none'; recTimer.textContent = '00:00'; }
+
+  const footer = $('rec-footer');
+  if (recording) {
+    footer.classList.add('recording');
+  } else {
+    footer.classList.remove('recording');
+    $('rec-timer-footer').style.display = 'none';
+    $('rec-timer-footer').textContent = '00:00';
+  }
+}
+
+function setFooterStatus(type, dotClass, label) {
+  if (type === 'local') {
+    const dot = $('rec-dot-local');
+    const lbl = $('rec-label-local');
+    dot.className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
+    lbl.textContent = label;
+  } else if (type === 'cloud') {
+    const dot = $('rec-dot-cloud');
+    const lbl = $('rec-label-cloud');
+    dot.className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
+    lbl.textContent = label;
+  }
 }
 
 async function checkServer() {
   try {
     const res = await fetch('/recordings', { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
-      setDot('server', 'ok');
-      $('label-server').textContent = 'サーバー：接続OK';
+      setDot('cloud', 'ok');
+      $('label-cloud').textContent = 'クラウド：接続OK';
+      setFooterStatus('cloud', 'ok', 'クラウド：接続OK');
     }
   } catch {
-    setDot('server', 'warn');
-    $('label-server').textContent = 'サーバー：オフライン（ローカル録音のみ）';
+    setDot('cloud', 'warn');
+    $('label-cloud').textContent = 'クラウド：オフライン（ローカル録音のみ）';
+    setFooterStatus('cloud', 'warn', 'クラウド：オフライン');
   }
 }
 
@@ -1452,6 +1641,8 @@ window.addEventListener('beforeunload', (e) => {
 // =========================================================
 (async () => {
   loadRoomFromUrl();
+  loadLocalEpisodes();
+  updateSyncBadge('offline');
   initSocket();
   await loadMics();
   await checkServer();

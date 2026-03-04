@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>クラウド録音ファイル一覧</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #242433;
+      --border: #2e2e42;
+      --accent: #6c63ff;
+      --accent-hover: #8b84ff;
+      --green: #22cc66;
+      --red: #ff4444;
+      --yellow: #ffaa00;
+      --text: #e8e8f0;
+      --text-dim: #888899;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Hiragino Sans', 'Meiryo', 'Yu Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; }
+    header a {
+      margin-left: auto;
+      font-size: 0.82rem;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 6px 12px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    header a:hover { background: rgba(108,99,255,0.15); }
+
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 20px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .page-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .page-subtitle {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+    .btn-refresh {
+      padding: 8px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-refresh:hover { background: var(--border); }
+
+    #file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .file-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .file-icon {
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .file-meta {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+    .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .btn-dl {
+      padding: 7px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-dl:hover { background: var(--accent-hover); }
+
+    audio {
+      width: 100%;
+      height: 36px;
+      margin-top: 12px;
+      border-radius: 6px;
+      background: var(--surface2);
+    }
+    audio::-webkit-media-controls-panel { background: var(--surface2); }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+    }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: 16px; }
+    .empty-state p { font-size: 0.92rem; }
+
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+      font-size: 0.92rem;
+    }
+
+    .error-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--red);
+      font-size: 0.88rem;
+      background: rgba(255,68,68,0.08);
+      border: 1px solid rgba(255,68,68,0.3);
+      border-radius: var(--radius);
+    }
+
+    .total-info {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      text-align: right;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 600px) {
+      main { padding: 14px; }
+      .file-card { padding: 12px 14px; }
+      .file-actions { width: 100%; justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>☁️</span>
+  <h1>クラウド録音ファイル一覧</h1>
+  <a href="/">← 収録ページへ戻る</a>
+</header>
+
+<main>
+  <div class="page-header">
+    <div>
+      <div class="page-title">サーバー保存済みファイル</div>
+      <div class="page-subtitle">サーバーにアップロードされた録音ファイルの一覧です</div>
+    </div>
+    <button class="btn-refresh" onclick="loadRecordings()">🔄 更新</button>
+  </div>
+
+  <div id="total-info" class="total-info" style="display:none"></div>
+  <div id="file-list">
+    <div class="loading-state">読み込み中...</div>
+  </div>
+</main>
+
+<script>
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatDate(str) {
+  const d = new Date(str);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+async function loadRecordings() {
+  const listEl = document.getElementById('file-list');
+  const totalEl = document.getElementById('total-info');
+  listEl.innerHTML = '<div class="loading-state">読み込み中...</div>';
+  totalEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/recordings');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const files = await res.json();
+
+    if (files.length === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🎙️</div>
+          <p>まだ録音ファイルがありません。<br>収録ページから録音するとここに表示されます。</p>
+        </div>
+      `;
+      return;
+    }
+
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    totalEl.textContent = `${files.length} ファイル ／ 合計 ${formatSize(totalSize)}`;
+    totalEl.style.display = 'block';
+
+    listEl.innerHTML = '';
+    files.forEach(f => {
+      const card = document.createElement('div');
+      card.className = 'file-card';
+      card.innerHTML = `
+        <div class="file-row">
+          <div class="file-icon">🎵</div>
+          <div class="file-info">
+            <div class="file-name">${f.name}</div>
+            <div class="file-meta">${formatDate(f.mtime)} ／ ${formatSize(f.size)}</div>
+          </div>
+          <div class="file-actions">
+            <a class="btn-dl" href="/recordings/${encodeURIComponent(f.name)}" download="${f.name}">
+              ⬇ ダウンロード
+            </a>
+          </div>
+        </div>
+        <audio controls src="/recordings/${encodeURIComponent(f.name)}"></audio>
+      `;
+      listEl.appendChild(card);
+    });
+  } catch (err) {
+    listEl.innerHTML = `
+      <div class="error-state">
+        ⚠️ ファイル一覧の取得に失敗しました：${err.message}<br>
+        <br>サーバーが起動しているか確認してください。
+      </div>
+    `;
+  }
+}
+
+loadRecordings();
+</script>
+</body>
+</html>

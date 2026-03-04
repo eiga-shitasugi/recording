@@ -72,8 +72,20 @@ app.get('/recordings/:filename', (req, res) => {
 // roomId -> Set<socketId>
 const rooms = new Map();
 
-// roomId -> 台本テキスト
-const roomScripts = new Map();
+// エピソード管理: roomId -> { list: [{id, name, content}], activeId }
+const roomEpisodes = new Map();
+
+function genId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function getEpisodes(roomId) {
+  if (!roomEpisodes.has(roomId)) {
+    const ep = { id: genId(), name: 'EP1', content: '' };
+    roomEpisodes.set(roomId, { list: [ep], activeId: ep.id });
+  }
+  return roomEpisodes.get(roomId);
+}
 
 function leaveRoom(socket) {
   const roomId = socket.data.roomId;
@@ -84,7 +96,7 @@ function leaveRoom(socket) {
     room.delete(socket.id);
     if (room.size === 0) {
       rooms.delete(roomId);
-      roomScripts.delete(roomId);
+      roomEpisodes.delete(roomId);
     }
   }
 
@@ -102,27 +114,23 @@ io.on('connection', (socket) => {
     if (!roomId || typeof roomId !== 'string') return;
     roomId = roomId.trim().toUpperCase().slice(0, 12);
 
-    // 既存ルームから退出
     if (socket.data.roomId) leaveRoom(socket);
 
     socket.join(roomId);
     if (!rooms.has(roomId)) rooms.set(roomId, new Set());
     const room = rooms.get(roomId);
 
-    // 既存参加者リストを新規参加者へ送信
     const existingPeers = [...room];
     socket.emit('room-peers', existingPeers);
-
-    // 既存参加者へ新規参加を通知
     socket.to(roomId).emit('peer-joined', socket.id);
 
     room.add(socket.id);
     socket.data.roomId = roomId;
     console.log(`[参加] room=${roomId} 人数=${room.size}`);
 
-    // 台本の現在の内容を新規参加者へ送信
-    const currentScript = roomScripts.get(roomId) || '';
-    socket.emit('script-content', currentScript);
+    // エピソードを新規参加者へ送信
+    const eps = getEpisodes(roomId);
+    socket.emit('episodes-sync', eps);
   });
 
   // WebRTC シグナリング中継
@@ -138,16 +146,67 @@ io.on('connection', (socket) => {
     if (to && candidate) io.to(to).emit('ice-candidate', { from: socket.id, candidate });
   });
 
-  // 台本リアルタイム共有
-  socket.on('script-update', ({ content }) => {
+  // ===== エピソード管理 =====
+
+  // エピソード作成
+  socket.on('episode-create', ({ name }) => {
     const roomId = socket.data.roomId;
-    if (!roomId || typeof content !== 'string') return;
-    if (content.length > 100000) return; // 10万文字制限
-    roomScripts.set(roomId, content);
-    socket.to(roomId).emit('script-content', content);
+    if (!roomId) return;
+    const eps = getEpisodes(roomId);
+    const ep = { id: genId(), name: String(name || 'EP').slice(0, 30), content: '' };
+    eps.list.push(ep);
+    eps.activeId = ep.id;
+    io.to(roomId).emit('episodes-sync', eps);
+    console.log(`[EP作成] room=${roomId} name=${ep.name}`);
   });
 
-  // 台本タイピングインジケーター中継
+  // アクティブエピソード切り替え
+  socket.on('episode-select', ({ id }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+    const eps = getEpisodes(roomId);
+    if (eps.list.some(e => e.id === id)) {
+      eps.activeId = id;
+      io.to(roomId).emit('episodes-sync', eps);
+    }
+  });
+
+  // エピソード内容更新（変更者以外に送信）
+  socket.on('episode-update', ({ id, content }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || typeof content !== 'string' || content.length > 100000) return;
+    const eps = getEpisodes(roomId);
+    const ep = eps.list.find(e => e.id === id);
+    if (ep) {
+      ep.content = content;
+      socket.to(roomId).emit('episode-updated', { id, content });
+    }
+  });
+
+  // エピソード名変更
+  socket.on('episode-rename', ({ id, name }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId || typeof name !== 'string') return;
+    const eps = getEpisodes(roomId);
+    const ep = eps.list.find(e => e.id === id);
+    if (ep) {
+      ep.name = String(name).slice(0, 30) || 'EP';
+      io.to(roomId).emit('episodes-sync', eps);
+    }
+  });
+
+  // エピソード削除
+  socket.on('episode-delete', ({ id }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+    const eps = getEpisodes(roomId);
+    if (eps.list.length <= 1) return; // 最低1エピソード
+    eps.list = eps.list.filter(e => e.id !== id);
+    if (eps.activeId === id) eps.activeId = eps.list[0].id;
+    io.to(roomId).emit('episodes-sync', eps);
+  });
+
+  // タイピングインジケーター中継
   socket.on('script-typing', (isTyping) => {
     const roomId = socket.data.roomId;
     if (!roomId || typeof isTyping !== 'boolean') return;
