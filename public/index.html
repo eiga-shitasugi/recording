@@ -916,7 +916,16 @@ async function createPeer(peerId, isInitiator) {
   ws.peers[peerId] = pc;
 
   if (ws.localStream) {
-    ws.localStream.getTracks().forEach(track => pc.addTrack(track, ws.localStream));
+    ws.localStream.getTracks().forEach(track => {
+      const sender = pc.addTrack(track, ws.localStream);
+      if (track.kind === 'video') {
+        const params = sender.getParameters();
+        if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+        params.encodings[0].maxBitrate = 300_000; // 300kbps
+        params.encodings[0].maxFramerate = 15;
+        sender.setParameters(params).catch(() => {});
+      }
+    });
   }
 
   pc.ontrack = (event) => {
@@ -998,7 +1007,7 @@ async function joinCall() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 15 }, facingMode: 'user' }
       });
     } catch {
       try {
