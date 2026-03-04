@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SureCast - Seamless Remote Recording</title>
+  <title>SureCast -SEAMLESS REMOTE RECORDING-</title>
   <style>
     /* ===== リセット & ベース ===== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #EDE8D6;
-      --surface: #F4F0E4;
-      --surface2: #E6E0CC;
-      --border: #CCC5AE;
-      --accent: #2B2B2B;
-      --accent-hover: #4A4A4A;
-      --red: #C8362E;
-      --red-dark: #A02824;
-      --green: #2A8C54;
-      --yellow: #B07820;
-      --teal: #0A7E8A;
-      --text: #2B2B2B;
-      --text-dim: #7A7060;
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #222222;
+      --border: #2a2a2a;
+      --accent: #d97706;
+      --accent-hover: #f59e0b;
+      --red: #ef4444;
+      --red-dark: #dc2626;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --teal: #22c55e;
+      --text: #f5f5f5;
+      --text-dim: #a0a0a0;
       --radius: 12px;
       --footer-h: 72px;
     }
@@ -38,7 +38,7 @@
 
     /* ===== ヘッダー ===== */
     header {
-      background: var(--surface);
+      background: #0f0f0f;
       border-bottom: 1px solid var(--border);
       padding: 14px 24px;
       display: flex;
@@ -46,10 +46,10 @@
       gap: 12px;
     }
     .header-logo {
-      height: 36px;
+      height: 50px;
       width: auto;
       display: block;
-      mix-blend-mode: multiply;
+      filter: brightness(0) invert(1);
     }
     header .header-link {
       margin-left: auto;
@@ -62,7 +62,7 @@
       transition: background 0.15s;
       white-space: nowrap;
     }
-    header .header-link:hover { background: rgba(108,99,255,0.15); }
+    header .header-link:hover { background: rgba(217,119,6,0.15); }
 
     /* ===== ステータスバー ===== */
     #status-bar {
@@ -82,7 +82,7 @@
       background: var(--text-dim);
       flex-shrink: 0;
     }
-    .dot.active     { background: var(--red);   animation: pulse 1s ease-in-out infinite; }
+    .dot.active     { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .dot.ok         { background: var(--green);  animation: none; }
     .dot.warn       { background: var(--yellow); animation: none; }
     .dot.uploading  { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
@@ -141,14 +141,14 @@
       font-family: inherit;
     }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    .btn-record { background: var(--red); color: #fff; }
-    .btn-record:not(:disabled):hover { background: var(--red-dark); transform: translateY(-1px); }
+    .btn-record { background: var(--accent); color: #000; }
+    .btn-record:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
     .btn-stop { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
     .btn-stop:not(:disabled):hover { background: var(--border); transform: translateY(-1px); }
-    .btn-save { background: var(--accent); color: #fff; }
+    .btn-save { background: var(--accent); color: #000; }
     .btn-save:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
-    .btn-teal { background: var(--teal); color: #fff; font-weight: 800; }
-    .btn-teal:not(:disabled):hover { background: #00a5ba; transform: translateY(-1px); }
+    .btn-teal { background: var(--teal); color: #000; font-weight: 800; }
+    .btn-teal:not(:disabled):hover { background: #16a34a; transform: translateY(-1px); }
     .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
     .btn-ghost:not(:disabled):hover { background: var(--border); transform: translateY(-1px); }
     .btn-danger { background: rgba(255,68,68,0.15); color: var(--red); border: 1px solid var(--red); }
@@ -211,7 +211,7 @@
     #invite-url-text { flex: 1; font-size: 0.82rem; color: var(--teal); word-break: break-all; min-width: 0; font-weight: 600; }
     #btn-copy-url {
       flex-shrink: 0;
-      background: var(--accent); color: #fff;
+      background: var(--accent); color: #000;
       border: none; border-radius: 6px;
       padding: 6px 12px; font-size: 0.82rem; font-weight: 700;
       cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap;
@@ -242,7 +242,7 @@
       padding: 3px 9px; border-radius: 20px;
       font-size: 0.72rem; font-weight: 700; pointer-events: none;
     }
-    .local-wrapper .video-label { background: rgba(0,188,212,0.75); }
+    .local-wrapper .video-label { background: rgba(34,197,94,0.75); }
 
     .video-placeholder {
       width: 100%; height: 100%;
@@ -306,7 +306,7 @@
       font-size: 0.8rem; font-weight: 600;
       cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
     }
-    .btn-dl { background: var(--accent); color: #fff; }
+    .btn-dl { background: var(--accent); color: #000; }
     .btn-dl:hover { background: var(--accent-hover); }
     .btn-dl-now { background: var(--green); color: #000; }
     .btn-dl-now:hover { background: #1aaa55; }
@@ -329,7 +329,7 @@
       padding: 5px 12px; border: 1px solid var(--accent); border-radius: 6px;
       transition: background 0.15s;
     }
-    .cloud-link-bar a:hover { background: rgba(108,99,255,0.15); }
+    .cloud-link-bar a:hover { background: rgba(217,119,6,0.15); }
 
     /* ===== アップロードステータス ===== */
     #upload-status-area {
@@ -388,7 +388,7 @@
       white-space: nowrap;
     }
     .ep-tab:hover { border-color: var(--accent); color: var(--text); }
-    .ep-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .ep-tab.active { background: var(--accent); border-color: var(--accent); color: #000; }
     #btn-ep-add {
       padding: 6px 12px;
       border-radius: 20px;
@@ -471,8 +471,8 @@
     }
 
     @keyframes script-flash {
-      0%   { background: rgba(43,43,43,0.08); border-color: var(--accent); }
-      100% { background: var(--surface2);     border-color: var(--border); }
+      0%   { background: rgba(217,119,6,0.12); border-color: var(--accent); }
+      100% { background: var(--surface2);      border-color: var(--border); }
     }
     #script-textarea.remote-updated { animation: script-flash 0.8s ease-out; }
 
@@ -490,8 +490,8 @@
       z-index: 500;
     }
     #rec-footer.recording {
-      border-top-color: var(--red);
-      background: color-mix(in srgb, var(--surface) 92%, var(--red) 8%);
+      border-top-color: var(--accent);
+      background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
     }
 
     #rec-footer-status {
@@ -509,7 +509,7 @@
       width: 8px; height: 8px; border-radius: 50%;
       background: var(--text-dim); flex-shrink: 0;
     }
-    .rec-stat-dot.active   { background: var(--red);   animation: pulse 1s ease-in-out infinite; }
+    .rec-stat-dot.active   { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .rec-stat-dot.ok       { background: var(--green);  }
     .rec-stat-dot.uploading{ background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .rec-stat-dot.warn     { background: var(--yellow); }
@@ -522,7 +522,7 @@
       font-size: 1.3rem; font-weight: 700;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.05em;
-      color: var(--red);
+      color: var(--accent);
     }
 
     #rec-footer-btns {
