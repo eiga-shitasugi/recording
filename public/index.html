@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SureCast -SEAMLESS REMOTE RECORDING-</title>
   <style>
-    /* ===== リセット & ベース ===== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -23,7 +22,6 @@
       --text: #f5f5f5;
       --text-dim: #a0a0a0;
       --radius: 12px;
-      --footer-h: 72px;
     }
 
     body {
@@ -33,24 +31,20 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      padding-bottom: var(--footer-h);
     }
 
     /* ===== ヘッダー ===== */
     header {
       background: #0f0f0f;
       border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
+      padding: 12px 24px;
       display: flex;
       align-items: center;
       gap: 12px;
       overflow: hidden;
+      flex-shrink: 0;
     }
-    .header-logo {
-      height: 50px;
-      width: auto;
-      display: block;
-    }
+    .header-logo { height: 44px; width: auto; display: block; }
     header .header-link {
       margin-left: auto;
       font-size: 0.82rem;
@@ -68,16 +62,17 @@
     #status-bar {
       background: var(--surface2);
       border-bottom: 1px solid var(--border);
-      padding: 8px 24px;
+      padding: 7px 24px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 20px;
       flex-wrap: wrap;
-      font-size: 0.82rem;
+      font-size: 0.80rem;
+      flex-shrink: 0;
     }
     .status-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .dot {
-      width: 9px; height: 9px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: var(--text-dim);
       flex-shrink: 0;
@@ -85,7 +80,6 @@
     .dot.active      { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .dot.ok          { background: var(--green);  animation: none; }
     .dot.warn        { background: var(--yellow); animation: none; }
-    .dot.uploading   { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .dot.call-active { background: var(--teal);   animation: pulse 1s ease-in-out infinite; }
     .dot.srv-rec     { background: var(--red);    animation: pulse 0.8s ease-in-out infinite; }
 
@@ -94,29 +88,33 @@
       50%       { opacity: 0.5; transform: scale(0.85); }
     }
 
-    /* ===== メインレイアウト ===== */
+    /* ===== 2カラム メインレイアウト ===== */
     main {
       flex: 1;
-      padding: 20px;
-      max-width: 960px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      align-items: start;
+      max-width: 1400px;
       width: 100%;
       margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
     }
+
+    #left-col { display: flex; flex-direction: column; gap: 12px; }
+    #right-col { position: sticky; top: 16px; }
 
     /* ===== カード ===== */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
+      padding: 18px;
     }
     .card-title {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 700;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -126,43 +124,43 @@
     /* ===== ボタン共通 ===== */
     .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
     .btn {
-      flex: 1;
-      min-width: 120px;
-      padding: 13px 16px;
+      padding: 11px 16px;
       border: none;
       border-radius: var(--radius);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 7px;
+      gap: 6px;
       font-family: inherit;
+      white-space: nowrap;
     }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .btn-record { background: var(--accent); color: #000; }
-    .btn-record:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
-    .btn-stop { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-    .btn-stop:not(:disabled):hover { background: var(--border); transform: translateY(-1px); }
-    .btn-teal { background: var(--accent); color: #000; font-weight: 800; }
+    .btn-record:not(:disabled):hover { background: var(--accent-hover); }
+    .btn-stop   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-stop:not(:disabled):hover { background: var(--border); }
+    .btn-teal   { background: var(--accent); color: #000; font-weight: 800; width: 100%; padding: 13px; font-size: 0.95rem; }
     .btn-teal:not(:disabled):hover { background: var(--accent-hover); transform: translateY(-1px); }
-    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-    .btn-ghost:not(:disabled):hover { background: var(--border); transform: translateY(-1px); }
+    .btn-ghost  { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:not(:disabled):hover { background: var(--border); }
     .btn-danger { background: rgba(255,68,68,0.15); color: var(--red); border: 1px solid var(--red); }
-    .btn-danger:not(:disabled):hover { background: rgba(255,68,68,0.25); transform: translateY(-1px); }
+    .btn-danger:not(:disabled):hover { background: rgba(255,68,68,0.25); }
+    .btn.muted  { opacity: 0.55; }
 
     /* ===== フォーム ===== */
-    .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-    label { font-size: 0.83rem; color: var(--text-dim); }
+    .form-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    label { font-size: 0.80rem; color: var(--text-dim); }
     select, input[type="text"] {
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
-      padding: 10px 14px;
-      font-size: 0.9rem;
+      padding: 9px 12px;
+      font-size: 0.88rem;
       font-family: inherit;
       width: 100%;
       outline: none;
@@ -173,57 +171,27 @@
     select option { background: var(--surface2); }
     input[type="text"]::placeholder { color: var(--text-dim); }
 
-    /* ===== ビデオ通話UI ===== */
-    .room-input-row {
-      display: flex;
-      gap: 8px;
-      align-items: stretch;
-    }
+    .room-input-row { display: flex; gap: 8px; align-items: stretch; }
     .room-input-row input {
       flex: 1;
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
     .room-input-row .btn-ghost {
       flex: 0 0 auto;
-      min-width: unset;
-      padding: 10px 12px;
-      font-size: 0.82rem;
-      white-space: nowrap;
+      padding: 9px 12px;
+      font-size: 0.80rem;
     }
 
-    /* 招待バー */
-    #invite-bar {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    #invite-bar .invite-label { font-size: 0.78rem; color: var(--text-dim); flex-shrink: 0; }
-    #invite-url-text { flex: 1; font-size: 0.82rem; color: var(--teal); word-break: break-all; min-width: 0; font-weight: 600; }
-    #btn-copy-url {
-      flex-shrink: 0;
-      background: var(--accent); color: #000;
-      border: none; border-radius: 6px;
-      padding: 6px 12px; font-size: 0.82rem; font-weight: 700;
-      cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap;
-    }
-    #btn-copy-url:hover { background: var(--accent-hover); }
-
-    /* ビデオグリッド */
+    /* ===== ビデオグリッド ===== */
     #video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 8px;
-      margin-bottom: 12px;
-      min-height: 140px;
+      margin-bottom: 10px;
+      min-height: 120px;
     }
     .video-wrapper {
       position: relative; background: #000;
@@ -234,80 +202,89 @@
     .video-wrapper.remote-wrapper { border-color: var(--border); }
     .video-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
     .local-wrapper video { transform: scaleX(-1); }
-
     .video-label {
-      position: absolute; bottom: 7px; left: 7px;
+      position: absolute; bottom: 6px; left: 6px;
       background: rgba(0,0,0,0.65); color: #fff;
-      padding: 3px 9px; border-radius: 20px;
-      font-size: 0.72rem; font-weight: 700; pointer-events: none;
+      padding: 2px 8px; border-radius: 20px;
+      font-size: 0.70rem; font-weight: 700; pointer-events: none;
     }
     .local-wrapper .video-label { background: rgba(34,197,94,0.75); }
-
     .video-placeholder {
       width: 100%; height: 100%;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 8px; color: var(--text-dim); font-size: 0.83rem;
+      gap: 6px; color: var(--text-dim); font-size: 0.80rem;
       background: var(--surface2);
     }
     .video-placeholder .avatar {
-      width: 44px; height: 44px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       background: var(--border);
-      display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+      display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
     }
 
-    #call-meta {
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 0.82rem; color: var(--text-dim); margin-bottom: 10px;
-    }
-    #call-participants { font-weight: 700; color: var(--teal); }
-    #call-controls .btn { min-width: 100px; padding: 11px 12px; font-size: 0.85rem; }
-    .btn.muted { opacity: 0.55; }
-
-    /* ===== サーバー録音バナー ===== */
-    #srv-rec-banner {
-      display: none;
+    /* ===== 招待バー ===== */
+    #invite-bar {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      display: flex;
       align-items: center;
       gap: 8px;
-      padding: 9px 14px;
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.4);
-      border-radius: 8px;
-      margin-bottom: 12px;
-      font-size: 0.82rem;
+      flex-wrap: wrap;
     }
-    #srv-rec-banner.visible { display: flex; }
-    .srv-rec-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--red); flex-shrink: 0;
-      animation: pulse 0.8s ease-in-out infinite;
+    #invite-bar .invite-label { font-size: 0.76rem; color: var(--text-dim); flex-shrink: 0; }
+    #invite-url-text { flex: 1; font-size: 0.78rem; color: var(--teal); word-break: break-all; min-width: 0; font-weight: 600; }
+    #btn-copy-url {
+      flex-shrink: 0;
+      background: var(--accent); color: #000;
+      border: none; border-radius: 6px;
+      padding: 5px 10px; font-size: 0.78rem; font-weight: 700;
+      cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap;
     }
+    #btn-copy-url:hover { background: var(--accent-hover); }
+
+    /* ===== 通話メタ ===== */
+    #call-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.80rem; margin-bottom: 10px;
+    }
+    #call-participants { font-weight: 700; color: var(--teal); }
+
+    /* ===== 通話コントロール行 ===== */
+    #call-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 10px;
+    }
+    #call-controls .btn { padding: 9px 14px; font-size: 0.82rem; }
 
     /* ===== VUメーター ===== */
     .vu-container {
-      margin-top: 14px;
-      padding: 12px 14px;
+      padding: 10px 12px;
       background: #111;
       border: 1px solid var(--border);
       border-radius: 8px;
+      margin-top: 12px;
     }
     .vu-label {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       color: var(--text-dim);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     .vu-label .vu-db { font-variant-numeric: tabular-nums; font-weight: 600; }
     .vu-bar-wrap {
-      height: 16px;
+      height: 14px;
       background: #1a1a1a;
       border-radius: 4px;
       overflow: hidden;
-      position: relative;
     }
-    /* 色ゾーン: 0-80%=暗緑(適正以下), 80-90%=明緑(適正), 90-97%=オレンジ(警告), 97-100%=赤(クリッピング) */
     .vu-bar {
       height: 100%;
       width: 0%;
@@ -324,33 +301,29 @@
     .vu-ticks {
       display: flex;
       justify-content: space-between;
-      font-size: 0.60rem;
+      font-size: 0.58rem;
       color: #555;
-      margin-top: 3px;
-    }
-    .vu-zone-labels {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 4px;
-      font-size: 0.68rem;
-    }
-    .vu-zone-label {
-      display: flex; align-items: center; gap: 4px;
-    }
-    .vu-zone-dot {
-      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      margin-top: 2px;
     }
     #vu-message {
-      margin-top: 6px;
-      font-size: 0.8rem;
-      min-height: 18px;
+      margin-top: 5px;
+      font-size: 0.78rem;
+      min-height: 16px;
       font-weight: 600;
     }
 
+    /* ===== 録音タイマー ===== */
+    #rec-timer-inline {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent);
+      min-width: 48px;
+      display: none;
+    }
+
     /* ===== 変換ステータス ===== */
-    .convert-status-area {
-      min-height: 40px;
+    #convert-status-list {
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -358,71 +331,53 @@
     .convert-item {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
+      gap: 8px;
+      padding: 9px 12px;
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 8px;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
     }
     .convert-item.converting { border-color: var(--accent); }
     .convert-item.done       { border-color: var(--green); }
     .convert-item.error      { border-color: var(--red); }
-    .convert-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .convert-icon { font-size: 1rem; flex-shrink: 0; }
     .convert-text { flex: 1; min-width: 0; }
     .convert-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .convert-sub { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
-
-    /* クラウドファイル一覧へのリンク */
-    .cloud-link-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; background: var(--surface2);
-      border: 1px solid var(--border); border-radius: 8px;
-      margin-bottom: 12px;
-      font-size: 0.85rem;
-    }
-    .cloud-link-bar a {
-      color: var(--accent); text-decoration: none; font-weight: 700;
-      padding: 5px 12px; border: 1px solid var(--accent); border-radius: 6px;
-      transition: background 0.15s;
-    }
-    .cloud-link-bar a:hover { background: rgba(217,119,6,0.15); }
-
-    .empty-state { text-align: center; padding: 24px; color: var(--text-dim); font-size: 0.88rem; }
+    .convert-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 1px; }
 
     /* ===== クラッシュリカバリーバナー ===== */
     #recovery-banner {
       display: none;
       background: #1a1200;
       border-bottom: 2px solid var(--accent);
-      padding: 14px 24px;
+      padding: 12px 24px;
       gap: 12px;
       align-items: center;
       flex-wrap: wrap;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
+      flex-shrink: 0;
     }
     #recovery-banner.visible { display: flex; }
     #recovery-banner .recovery-msg { flex: 1; color: var(--accent); font-weight: 600; }
-    #recovery-banner .recovery-sub { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+    #recovery-banner .recovery-sub { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
     #recovery-banner .btn-recovery-dl {
       background: var(--accent); color: #000; border: none; border-radius: 6px;
-      padding: 7px 16px; font-size: 0.82rem; font-weight: 700; cursor: pointer;
-      white-space: nowrap;
+      padding: 6px 14px; font-size: 0.80rem; font-weight: 700; cursor: pointer; white-space: nowrap;
     }
     #recovery-banner .btn-recovery-del {
       background: transparent; color: var(--text-dim); border: 1px solid var(--border);
-      border-radius: 6px; padding: 7px 14px; font-size: 0.82rem; cursor: pointer;
-      white-space: nowrap;
+      border-radius: 6px; padding: 6px 12px; font-size: 0.80rem; cursor: pointer; white-space: nowrap;
     }
     #recovery-banner .btn-recovery-del:hover { color: var(--red); border-color: var(--red); }
 
     /* ===== トースト ===== */
     #toast {
-      position: fixed; bottom: calc(var(--footer-h) + 12px); left: 50%;
+      position: fixed; bottom: 20px; left: 50%;
       transform: translateX(-50%) translateY(100px);
       background: var(--surface2); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 11px 18px;
-      font-size: 0.88rem; font-weight: 600;
+      border-radius: var(--radius); padding: 10px 18px;
+      font-size: 0.86rem; font-weight: 600;
       transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
       z-index: 1000; white-space: nowrap; max-width: 90vw; text-align: center;
     }
@@ -436,22 +391,17 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       flex-wrap: wrap;
     }
-    #episode-tabs {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      flex: 1;
-    }
+    #episode-tabs { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
     .ep-tab {
-      padding: 6px 14px;
+      padding: 5px 12px;
       border-radius: 20px;
       border: 1px solid var(--border);
       background: var(--surface2);
       color: var(--text-dim);
-      font-size: 0.82rem;
+      font-size: 0.80rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
@@ -461,12 +411,12 @@
     .ep-tab:hover { border-color: var(--accent); color: var(--text); }
     .ep-tab.active { background: var(--accent); border-color: var(--accent); color: #000; }
     #btn-ep-add {
-      padding: 6px 12px;
+      padding: 5px 10px;
       border-radius: 20px;
       border: 1px dashed var(--border);
       background: transparent;
       color: var(--text-dim);
-      font-size: 0.82rem;
+      font-size: 0.80rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
@@ -474,36 +424,31 @@
       white-space: nowrap;
     }
     #btn-ep-add:hover { border-color: var(--accent); color: var(--accent); }
-
-    #episode-actions {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
+    #episode-actions { display: flex; gap: 5px; flex-shrink: 0; }
     .ep-action-btn {
-      padding: 5px 10px;
+      padding: 4px 9px;
       border-radius: 6px;
       border: 1px solid var(--border);
       background: var(--surface2);
       color: var(--text-dim);
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       cursor: pointer;
       transition: all 0.15s;
       font-family: inherit;
       white-space: nowrap;
     }
-    .ep-action-btn:hover { border-color: var(--border); color: var(--text); background: var(--border); }
+    .ep-action-btn:hover { color: var(--text); background: var(--border); }
     .ep-action-btn.danger:hover { border-color: var(--red); color: var(--red); background: rgba(255,68,68,0.1); }
 
     #script-textarea {
       width: 100%;
-      min-height: 260px;
+      min-height: 380px;
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
-      padding: 14px;
-      font-size: 0.92rem;
+      padding: 12px;
+      font-size: 0.90rem;
       font-family: 'Hiragino Sans', 'Meiryo', 'Yu Gothic', sans-serif;
       line-height: 1.8;
       resize: vertical;
@@ -514,24 +459,24 @@
     #script-textarea::placeholder { color: var(--text-dim); opacity: 0.7; }
 
     .sync-badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 0.76rem; padding: 3px 9px; border-radius: 999px;
-      font-weight: 600; margin-left: 6px;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
+      font-weight: 600;
     }
     .sync-badge.offline { background: rgba(136,136,153,0.15); color: var(--text-dim); }
     .sync-badge.syncing { background: rgba(255,170,0,0.15);   color: var(--yellow); }
     .sync-badge.synced  { background: rgba(34,204,102,0.15);  color: var(--green);  }
 
-    #script-user-count { font-size: 0.76rem; color: var(--teal); margin-left: 5px; }
+    #script-user-count { font-size: 0.72rem; color: var(--teal); }
 
     #script-typing-indicator {
-      min-height: 20px; margin-top: 7px;
-      font-size: 0.78rem; color: var(--text-dim);
-      display: flex; align-items: center; gap: 6px;
+      min-height: 18px; margin-top: 6px;
+      font-size: 0.76rem; color: var(--text-dim);
+      display: flex; align-items: center; gap: 5px;
     }
     .typing-dots { display: inline-flex; gap: 3px; }
     .typing-dots span {
-      width: 5px; height: 5px; border-radius: 50%;
+      width: 4px; height: 4px; border-radius: 50%;
       background: var(--accent); animation: typing-bounce 1.2s infinite;
     }
     .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -540,112 +485,34 @@
       0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
       30%            { transform: translateY(-4px); opacity: 1; }
     }
-
     @keyframes script-flash {
       0%   { background: rgba(217,119,6,0.12); border-color: var(--accent); }
       100% { background: var(--surface2);      border-color: var(--border); }
     }
     #script-textarea.remote-updated { animation: script-flash 0.8s ease-out; }
 
-    /* ===== 固定録音フッター ===== */
-    #rec-footer {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: var(--footer-h);
-      background: var(--surface);
-      border-top: 2px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-      gap: 16px;
-      z-index: 500;
-    }
-    #rec-footer.recording {
-      border-top-color: var(--accent);
-      background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
-    }
-
-    #rec-footer-status {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      min-width: 0;
-      flex: 1;
-    }
-    .rec-stat-row {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 0.78rem; white-space: nowrap;
-    }
-    .rec-stat-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--text-dim); flex-shrink: 0;
-    }
-    .rec-stat-dot.active   { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
-    .rec-stat-dot.ok       { background: var(--green);  }
-    .rec-stat-dot.warn     { background: var(--yellow); }
-    .rec-stat-dot.srv-rec  { background: var(--red);    animation: pulse 0.8s ease-in-out infinite; }
-
-    #rec-footer-center {
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-      flex-shrink: 0;
-    }
-    #rec-timer-footer {
-      font-size: 1.3rem; font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 0.05em;
-      color: var(--accent);
-    }
-
-    #rec-footer-btns {
-      display: flex; gap: 10px; flex-shrink: 0;
-    }
-    #rec-footer-btns .btn {
-      min-width: 0;
-      padding: 11px 18px;
-      font-size: 0.88rem;
-      flex: 0 0 auto;
-    }
-
-    /* ===== 2カラムレイアウト（通話中） ===== */
-    @media (min-width: 960px) {
-      main.in-call {
-        max-width: 1440px;
-        display: grid;
-        grid-template-columns: 1fr 420px;
-        gap: 20px;
-        align-items: start;
-      }
-      main.in-call > #call-card      { grid-column: 1; grid-row: 1; }
-      main.in-call > #recording-card { grid-column: 1; grid-row: 2; }
-      main.in-call > #files-card     { grid-column: 1; grid-row: 3; }
-      main.in-call > #script-card    {
-        grid-column: 2; grid-row: 1 / span 3;
-        position: sticky; top: 16px;
-      }
-      main.in-call #script-textarea { min-height: 480px; }
+    /* ===== 録音中の視覚フィードバック ===== */
+    #left-col.recording #audio-panel {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
     }
 
     /* ===== レスポンシブ ===== */
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      #right-col { position: static; }
+    }
     @media (max-width: 768px) {
       header { padding: 10px 16px; }
       .header-logo { height: 36px; }
+      #status-bar { padding: 6px 16px; gap: 14px; }
     }
     @media (max-width: 600px) {
-      main { padding: 10px; gap: 14px; }
+      main { padding: 10px; gap: 10px; }
       .card { padding: 14px; }
-      .btn  { min-width: 90px; padding: 11px 10px; font-size: 0.85rem; }
       #video-grid { grid-template-columns: 1fr 1fr; }
-      #call-controls .btn { min-width: 72px; font-size: 0.78rem; padding: 10px 8px; }
-      #rec-footer { padding: 0 12px; gap: 10px; }
-      #rec-footer-btns .btn { padding: 10px 14px; font-size: 0.82rem; }
-      #rec-timer-footer { font-size: 1.1rem; }
-      .rec-stat-row { font-size: 0.72rem; }
-      #episode-actions { gap: 4px; }
-      .ep-action-btn { padding: 4px 8px; font-size: 0.72rem; }
-    }
-    @media (max-width: 400px) {
-      #video-grid { grid-template-columns: 1fr; }
-      #rec-footer-status { display: none; }
+      #call-controls { gap: 6px; }
+      #call-controls .btn { padding: 8px 10px; font-size: 0.78rem; }
     }
   </style>
 </head>
@@ -686,47 +553,30 @@
 
 <main>
 
-  <!-- ===== ビデオ通話 ===== -->
-  <div class="card" id="call-card">
-    <div class="card-title">📹 ビデオ通話</div>
+  <!-- ===== 左カラム ===== -->
+  <div id="left-col">
 
-    <!-- 参加前 -->
-    <div id="call-setup">
+    <!-- 通話前セットアップ -->
+    <div class="card" id="call-setup">
       <div class="form-row">
         <label for="username-input">ユーザー名（録音ファイル名・参加者表示に使用）</label>
         <input type="text" id="username-input" placeholder="例：Taro（未入力の場合はランダム）" maxlength="20">
       </div>
       <div class="form-row">
-        <label>ルームID（英数字・自動生成されます）</label>
+        <label>ルームID（英数字・自動生成）</label>
         <div class="room-input-row">
           <input type="text" id="room-input" placeholder="例：ABC123" maxlength="12">
           <button class="btn btn-ghost" id="btn-random-room">ランダム</button>
         </div>
       </div>
-      <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:14px;">
-        同じルームIDを入力するだけで通話できます。参加と同時にサーバー側録音が自動開始されます。
-      </p>
-      <div class="btn-row">
-        <button class="btn btn-teal" id="btn-join-call">📹 通話に参加</button>
-      </div>
+      <button class="btn btn-teal" id="btn-join-call">📹 通話に参加</button>
     </div>
 
-    <!-- 通話中 -->
-    <div id="call-active" style="display:none">
-      <div id="srv-rec-banner">
-        <div class="srv-rec-dot"></div>
-        <span id="srv-rec-label">サーバー側録音中（自動）— 退出時にFLACで保存されます</span>
-      </div>
-
-      <div id="invite-bar">
-        <span class="invite-label">招待URL</span>
-        <span id="invite-url-text"></span>
-        <button id="btn-copy-url">コピー</button>
-      </div>
-
+    <!-- 通話中エリア（参加後に表示） -->
+    <div class="card" id="call-active" style="display:none">
       <div id="call-meta">
         <span id="call-participants">参加者：自分のみ</span>
-        <span id="call-room-label" style="color:var(--text-dim)"></span>
+        <span id="call-room-label" style="color:var(--text-dim);font-size:0.78rem"></span>
       </div>
 
       <div id="video-grid">
@@ -736,118 +586,88 @@
         </div>
       </div>
 
-      <div class="btn-row" id="call-controls">
+      <div id="invite-bar">
+        <span class="invite-label">招待URL</span>
+        <span id="invite-url-text"></span>
+        <button id="btn-copy-url">コピー</button>
+      </div>
+
+      <div id="call-controls">
         <button class="btn btn-ghost" id="btn-mute-audio">🎙️ ミュート</button>
         <button class="btn btn-ghost" id="btn-mute-video">📹 カメラOFF</button>
         <button class="btn btn-danger" id="btn-leave-call">📵 通話終了</button>
       </div>
     </div>
+
+    <!-- マイク・VU・録音コントロール（常時表示） -->
+    <div class="card" id="audio-panel">
+      <div class="form-row" style="margin-bottom:0">
+        <label for="mic-select">使用するマイク</label>
+        <select id="mic-select">
+          <option value="">（マイクを検出中...）</option>
+        </select>
+      </div>
+
+      <div class="vu-container" id="vu-container">
+        <div class="vu-label">
+          <span>🎚️ 音量レベル</span>
+          <span class="vu-db" id="vu-db-label">— dB</span>
+        </div>
+        <div class="vu-bar-wrap">
+          <div class="vu-bar" id="vu-bar"></div>
+        </div>
+        <div class="vu-ticks">
+          <span>-60</span>
+          <span>-48</span>
+          <span>-36</span>
+          <span>-24</span>
+          <span>-12</span>
+          <span>-6</span>
+          <span>0dB</span>
+        </div>
+        <div id="vu-message"></div>
+      </div>
+
+      <!-- 録音コントロール -->
+      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+        <span id="rec-timer-inline"></span>
+        <button class="btn btn-record" id="btn-start">⏺ 録音開始</button>
+        <button class="btn btn-stop" id="btn-stop" disabled>⏹ 停止・変換</button>
+      </div>
+    </div>
+
+    <!-- 変換ステータス -->
+    <div id="convert-status-list"></div>
+
   </div>
 
-  <!-- ===== 録音設定 ===== -->
-  <div class="card" id="recording-card">
-    <div class="card-title">🎙️ 録音設定</div>
-
-    <div class="form-row">
-      <label for="mic-select">使用するマイク</label>
-      <select id="mic-select">
-        <option value="">（マイクを検出中...）</option>
-      </select>
-    </div>
-
-    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0;">
-      録音ボタンは画面下から操作。停止後に自動でFLAC変換・サーバー保存されます。
-    </p>
-
-    <!-- VUメーター -->
-    <div class="vu-container" id="vu-container">
-      <div class="vu-label">
-        <span>🎚️ 音量レベル</span>
-        <span class="vu-db" id="vu-db-label">— dB</span>
+  <!-- ===== 右カラム（台本） ===== -->
+  <div id="right-col">
+    <div class="card" id="script-card">
+      <div class="card-title">
+        📝 台本・エピソード管理
+        <span class="sync-badge offline" id="sync-badge">ローカルのみ</span>
+        <span id="script-user-count" style="display:none"></span>
       </div>
-      <div class="vu-bar-wrap">
-        <div class="vu-bar" id="vu-bar"></div>
-      </div>
-      <div class="vu-ticks">
-        <span>-60</span>
-        <span>-48</span>
-        <span>-36</span>
-        <span>-24</span>
-        <span>-12</span>
-        <span>-6</span>
-        <span>0dB</span>
-      </div>
-      <div class="vu-zone-labels">
-        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#15803d"></div><span style="color:#a0a0a0">適正以下</span></div>
-        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#22c55e"></div><span style="color:#a0a0a0">適正（-12〜-6dB）</span></div>
-        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#f59e0b"></div><span style="color:#a0a0a0">警告</span></div>
-        <div class="vu-zone-label"><div class="vu-zone-dot" style="background:#ef4444"></div><span style="color:#a0a0a0">クリッピング</span></div>
-      </div>
-      <div id="vu-message"></div>
-    </div>
-  </div>
 
-  <!-- ===== 録音保存状況 ===== -->
-  <div class="card" id="files-card">
-    <div class="card-title">📁 録音保存状況</div>
-    <div class="cloud-link-bar">
-      <span style="font-size:0.82rem;color:var(--text-dim);">保存済みFLACファイルはこちら</span>
-      <a href="/recordings.html" target="_blank">☁ 録音ファイル一覧を開く</a>
-    </div>
-    <div id="convert-status-list" class="convert-status-area">
-      <div class="empty-state">録音を停止すると自動的にFLACに変換・保存されます</div>
-    </div>
-  </div>
-
-  <!-- ===== 台本・エピソード管理 ===== -->
-  <div class="card" id="script-card">
-    <div class="card-title">
-      📝 台本・エピソード管理
-      <span class="sync-badge offline" id="sync-badge">ローカルのみ</span>
-      <span id="script-user-count" style="display:none"></span>
-    </div>
-
-    <!-- エピソードバー -->
-    <div id="episode-bar">
-      <div id="episode-tabs"></div>
-      <button id="btn-ep-add" title="エピソードを追加">+ EP追加</button>
-      <div id="episode-actions">
-        <button class="ep-action-btn" id="btn-ep-rename" title="選択中のエピソード名を変更">✏ 名前変更</button>
-        <button class="ep-action-btn danger" id="btn-ep-delete" title="選択中のエピソードを削除">🗑 削除</button>
+      <div id="episode-bar">
+        <div id="episode-tabs"></div>
+        <button id="btn-ep-add" title="エピソードを追加">+ EP追加</button>
+        <div id="episode-actions">
+          <button class="ep-action-btn" id="btn-ep-rename" title="名前変更">✏ 名前変更</button>
+          <button class="ep-action-btn danger" id="btn-ep-delete" title="削除">🗑 削除</button>
+        </div>
       </div>
-    </div>
 
-    <textarea
-      id="script-textarea"
-      placeholder="台本やメモをここに入力してください。&#10;&#10;例：&#10;【オープニング】&#10;「こんにちは、〇〇ポッドキャストへようこそ」&#10;&#10;【トピック1】&#10;・..."
-    ></textarea>
-    <div id="script-typing-indicator"></div>
+      <textarea
+        id="script-textarea"
+        placeholder="台本やメモをここに入力してください。&#10;&#10;例：&#10;【オープニング】&#10;「こんにちは、〇〇ポッドキャストへようこそ」&#10;&#10;【トピック1】&#10;・..."
+      ></textarea>
+      <div id="script-typing-indicator"></div>
+    </div>
   </div>
 
 </main>
-
-<!-- ===== 固定録音フッター ===== -->
-<div id="rec-footer">
-  <div id="rec-footer-status">
-    <div class="rec-stat-row">
-      <div class="rec-stat-dot" id="rec-dot-local"></div>
-      <span id="rec-label-local">ローカル録音：停止中</span>
-    </div>
-    <div class="rec-stat-row">
-      <div class="rec-stat-dot" id="rec-dot-srv"></div>
-      <span id="rec-label-srv">サーバー録音：待機中</span>
-    </div>
-  </div>
-
-  <div id="rec-footer-center">
-    <div id="rec-timer-footer" style="display:none">00:00</div>
-  </div>
-
-  <div id="rec-footer-btns">
-    <button class="btn btn-record" id="btn-start">⏺ 録音開始</button>
-    <button class="btn btn-stop" id="btn-stop" disabled>⏹ 停止・変換</button>
-  </div>
-</div>
 
 <div id="toast"></div>
 
@@ -1130,7 +950,6 @@ function updateParticipants() {
 }
 
 // ===== 通話参加 =====
-// ルーム参加前のローカル台本内容を保持
 let preJoinScriptContent = '';
 
 async function joinCall() {
@@ -1163,7 +982,6 @@ async function joinCall() {
     ws.roomId = roomId;
     ws.inCall = true;
 
-    // 自分のビデオラベルにユーザー名を表示
     const localLabel = $('local-video-label');
     if (localLabel) localLabel.textContent = username + '（自分）';
 
@@ -1180,11 +998,9 @@ async function joinCall() {
       `;
     }
 
-    // 台本の現在内容を保持（参加後も維持するため）
     const curEp = getActiveEpisode();
     preJoinScriptContent = curEp ? curEp.content : $('script-textarea').value;
 
-    // サーバー参加
     ws.socket.emit('join-room', { roomId, username });
 
     const url = new URL(window.location.href);
@@ -1199,9 +1015,7 @@ async function joinCall() {
     $('label-call').textContent = `通話中：${roomId}`;
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
-    document.querySelector('main').classList.add('in-call');
 
-    // サーバー側録音を自動開始
     startServerRecording(username);
 
   } catch (err) {
@@ -1213,7 +1027,6 @@ async function joinCall() {
 
 // ===== 通話終了 =====
 function leaveCall() {
-  // サーバー側録音を停止
   stopServerRecording();
 
   Object.keys(ws.peers).forEach(removePeer);
@@ -1255,7 +1068,6 @@ function leaveCall() {
   $('label-srv-rec').textContent = 'サーバー録音：待機中';
   setFooterStatus('srv', '', 'サーバー録音：待機中');
   showToast('通話を終了しました。サーバー録音をFLAC変換中...', 'info');
-  document.querySelector('main').classList.remove('in-call');
   updateSyncBadge('offline');
 
   if (ws.socket) ws.socket.emit('script-typing', false);
@@ -1353,14 +1165,12 @@ async function startServerRecording(username) {
       }
     };
 
-    srvRecMR.start(1000); // 1秒ごとにチャンク送信
+    srvRecMR.start(1000);
     srvRecActive = true;
 
     setDot('srv-rec', 'srv-rec');
     $('label-srv-rec').textContent = `サーバー録音中：${username}`;
     setFooterStatus('srv', 'srv-rec', `サーバー録音中`);
-    $('srv-rec-banner').classList.add('visible');
-    $('srv-rec-label').textContent = `サーバー側録音中（${username}）— 退出時にFLACで保存されます`;
 
     console.log('[サーバー録音] 開始:', username);
   } catch (err) {
@@ -1383,12 +1193,10 @@ function stopServerRecording() {
   if (ws.socket) ws.socket.emit('stop-server-recording');
   srvRecMR = null;
 
-  $('srv-rec-banner').classList.remove('visible');
   setDot('srv-rec', '');
   $('label-srv-rec').textContent = 'サーバー録音：変換中...';
   setFooterStatus('srv', '', 'サーバー録音：変換中...');
 
-  // 変換完了を表示（サーバー側で処理）
   setTimeout(() => {
     $('label-srv-rec').textContent = 'サーバー録音：待機中';
     setFooterStatus('srv', '', 'サーバー録音：待機中');
@@ -1448,8 +1256,6 @@ function loadLocalEpisodes() {
   renderActiveEpisode();
 }
 
-// サーバーからの全エピソード同期
-// ルーム参加後も事前入力した台本を維持する
 function handleEpisodesSync(data) {
   const serverEpisodes = data.list || [];
   const serverHasContent = serverEpisodes.some(e => e.content && e.content.trim().length > 0);
@@ -1457,7 +1263,6 @@ function handleEpisodesSync(data) {
   episodeState.episodes = serverEpisodes;
   episodeState.activeId = data.activeId || (serverEpisodes[0] && serverEpisodes[0].id);
 
-  // サーバーが空で、参加前に入力済みコンテンツがある場合 → ローカル内容を使用してサーバーへ送信
   if (!serverHasContent && preJoinScriptContent && preJoinScriptContent.trim()) {
     const activeEp = getActiveEpisode();
     if (activeEp) {
@@ -1614,7 +1419,6 @@ let vuStream = null;
 let vuAnimFrame = null;
 let vuCtx = null;
 let silenceTimer = null;
-let vuMuted = false;
 
 async function startVUMeter() {
   if (vuAnalyser) return;
@@ -1650,7 +1454,7 @@ function stopVUMeter() {
   const dbLabel = $('vu-db-label');
   if (dbLabel) dbLabel.textContent = '— dB';
   const msg = $('vu-message');
-  if (msg) { msg.textContent = ''; }
+  if (msg) msg.textContent = '';
 }
 
 function updateVUMeter() {
@@ -1659,7 +1463,6 @@ function updateVUMeter() {
   const data = new Float32Array(vuAnalyser.fftSize);
   vuAnalyser.getFloatTimeDomainData(data);
 
-  // RMS計算
   let sum = 0;
   let peak = 0;
   for (let i = 0; i < data.length; i++) {
@@ -1667,11 +1470,7 @@ function updateVUMeter() {
     if (Math.abs(data[i]) > peak) peak = Math.abs(data[i]);
   }
   const rms = Math.sqrt(sum / data.length);
-
-  // dB変換（-60dBフロア）
   const db = rms > 0.000001 ? Math.max(-60, 20 * Math.log10(rms)) : -60;
-
-  // バー幅（-60dB=0%, 0dB=100%）
   const pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
 
   const bar = $('vu-bar');
@@ -1681,7 +1480,6 @@ function updateVUMeter() {
   if (bar) bar.style.width = pct + '%';
   if (dbLabel) dbLabel.textContent = db > -60 ? `${db.toFixed(1)} dB` : '-∞ dB';
 
-  // クリッピング検知（peak >= 0.99）
   const isClipping = peak >= 0.99;
 
   if (msg) {
@@ -1699,7 +1497,6 @@ function updateVUMeter() {
     }
   }
 
-  // 無音検知（-55dB以下 = ほぼ無音）
   if (db < -55) {
     if (!silenceTimer) {
       silenceTimer = setTimeout(() => {
@@ -1710,16 +1507,12 @@ function updateVUMeter() {
       }, 5000);
     }
   } else {
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
-      silenceTimer = null;
-    }
+    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
   }
 
   vuAnimFrame = requestAnimationFrame(updateVUMeter);
 }
 
-// マイク変更時にVUメーターを再起動
 $('mic-select').addEventListener('change', async () => {
   if (vuAnalyser) {
     stopVUMeter();
@@ -1815,7 +1608,6 @@ async function checkRecovery() {
     const blob = new Blob(chunks.map(c => c.blob), { type: mimeType });
     if (blob.size === 0) { banner.classList.remove('visible'); return; }
 
-    // FLACに変換してサーバーへ保存
     const username = getUserName();
     addConvertStatus('recover', '変換中（クラッシュ復元）...', 'converting');
     try {
@@ -1873,7 +1665,6 @@ async function loadMics() {
     setDot('mic', 'ok');
     $('label-mic').textContent = `マイク：${mics.length}台検出`;
 
-    // VUメーター開始
     await startVUMeter();
   } catch {
     setDot('mic', 'warn');
@@ -1883,7 +1674,6 @@ async function loadMics() {
 }
 
 function getBestMimeType() {
-  // audio/webm;codecs=opus を優先
   const types = [
     'audio/webm;codecs=opus',
     'audio/webm',
@@ -1906,7 +1696,6 @@ async function startRecording() {
     };
     state.stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-    // MIMEタイプを audio/webm;codecs=opus に固定（可能な場合）
     state.mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
       : getBestMimeType();
@@ -1921,7 +1710,6 @@ async function startRecording() {
       audioBitsPerSecond: 192000,
     });
 
-    // ondataavailable → onstop の順序を保証
     state.mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
         state.chunks.push(e.data);
@@ -1937,7 +1725,6 @@ async function startRecording() {
     setRecordingUI(true);
     startTimer();
 
-    // 30秒ごとにIDBへバックアップ保存（クラッシュリカバリー用・サイレント）
     state.chunkInterval = setInterval(saveChunkToIDB, 30000);
 
     setDot('local-rec', 'active');
@@ -1964,11 +1751,9 @@ function stopRecording() {
   setFooterStatus('local', '', 'ローカル録音：変換中...');
 }
 
-// onstopで呼ばれる（全ondataavailableの後に実行が保証される）
 async function finalizeRecording() {
   const sessionId = state.sessionId;
 
-  // 全チャンクが揃っているか確認
   if (state.chunks.length === 0) {
     console.warn('[録音] チャンクが空です');
     setDot('local-rec', 'warn');
@@ -1982,7 +1767,6 @@ async function finalizeRecording() {
   const blob = new Blob(state.chunks, { type: mimeType });
   state.chunks = [];
 
-  // サイズ確認
   if (blob.size === 0) {
     console.warn('[録音] Blobサイズが0です');
     setDot('local-rec', 'warn');
@@ -1992,7 +1776,6 @@ async function finalizeRecording() {
     return;
   }
 
-  // FLACに変換してサーバーへ保存
   const username = getUserName();
   const itemId = 'local-' + sessionId;
   addConvertStatus(itemId, `変換中... (${formatSize(blob.size)})`, 'converting');
@@ -2014,11 +1797,9 @@ async function finalizeRecording() {
     setFooterStatus('local', 'warn', 'ローカル録音：変換失敗');
   }
 
-  // 正常終了 → IDBのセッションデータを削除
   await idbClearSession(sessionId);
 }
 
-// 30秒ごとのIDB保存（クラッシュリカバリー用・サイレント）
 async function saveChunkToIDB() {
   if (state.chunks.length === 0) return;
   state.chunkCount++;
@@ -2030,7 +1811,6 @@ async function saveChunkToIDB() {
   }
 }
 
-// ===== FLAC変換アップロード =====
 async function uploadForFlacConversion(blob, username) {
   const formData = new FormData();
   formData.append('audio', blob, 'recording.webm');
@@ -2048,13 +1828,8 @@ async function uploadForFlacConversion(blob, username) {
   return res.json();
 }
 
-// ===== 変換ステータスUI =====
 function addConvertStatus(id, text, type) {
   const list = $('convert-status-list');
-  // 空状態を削除
-  const empty = list.querySelector('.empty-state');
-  if (empty) empty.remove();
-
   const item = document.createElement('div');
   item.className = `convert-item ${type}`;
   item.id = `convert-item-${id}`;
@@ -2083,8 +1858,8 @@ function updateConvertStatus(id, text, type) {
 }
 
 function startTimer() {
-  const timerEl = $('rec-timer-footer');
-  timerEl.style.display = 'block';
+  const timerEl = $('rec-timer-inline');
+  timerEl.style.display = 'inline';
   state.timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
     const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
@@ -2098,23 +1873,24 @@ function setRecordingUI(recording) {
   btnStop.disabled  = !recording;
   micSelect.disabled = recording;
 
-  const footer = $('rec-footer');
+  const leftCol = $('left-col');
   if (recording) {
-    footer.classList.add('recording');
+    leftCol.classList.add('recording');
   } else {
-    footer.classList.remove('recording');
-    $('rec-timer-footer').style.display = 'none';
-    $('rec-timer-footer').textContent = '00:00';
+    leftCol.classList.remove('recording');
+    const timerEl = $('rec-timer-inline');
+    timerEl.style.display = 'none';
+    timerEl.textContent = '';
   }
 }
 
 function setFooterStatus(type, dotClass, label) {
   if (type === 'local') {
-    $('rec-dot-local').className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
-    $('rec-label-local').textContent = label;
+    setDot('local-rec', dotClass);
+    $('label-local-rec').textContent = label;
   } else if (type === 'srv') {
-    $('rec-dot-srv').className = 'rec-stat-dot' + (dotClass ? ` ${dotClass}` : '');
-    $('rec-label-srv').textContent = label;
+    setDot('srv-rec', dotClass);
+    $('label-srv-rec').textContent = label;
   }
 }
 
@@ -2126,7 +1902,7 @@ async function checkServer() {
       $('label-srv-rec').textContent = 'サーバー録音：待機中';
     }
   } catch {
-    // サイレントに失敗（サーバー未接続）
+    // サイレントに失敗
   }
 }
 
