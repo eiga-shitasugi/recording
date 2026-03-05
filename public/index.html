@@ -101,7 +101,7 @@
       margin: 0 auto;
     }
 
-    #left-col { display: flex; flex-direction: column; gap: 12px; }
+    #left-col { display: flex; flex-direction: column; gap: 8px; }
     #right-col { position: sticky; top: 16px; }
 
     /* ===== カード ===== */
@@ -264,23 +264,23 @@
 
     /* ===== VUメーター ===== */
     .vu-container {
-      padding: 10px 12px;
+      padding: 7px 10px;
       background: #111;
       border: 1px solid var(--border);
       border-radius: 8px;
-      margin-top: 12px;
+      margin-top: 10px;
     }
     .vu-label {
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       color: var(--text-dim);
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     .vu-label .vu-db { font-variant-numeric: tabular-nums; font-weight: 600; }
     .vu-bar-wrap {
-      height: 14px;
+      height: 8px;
       background: #1a1a1a;
       border-radius: 4px;
       overflow: hidden;
@@ -298,18 +298,12 @@
         #ef4444 97%, #ef4444 100%
       );
     }
-    .vu-ticks {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.58rem;
-      color: #555;
-      margin-top: 2px;
-    }
     #vu-message {
-      margin-top: 5px;
-      font-size: 0.78rem;
-      min-height: 16px;
+      margin-top: 4px;
+      font-size: 0.74rem;
+      min-height: 0;
       font-weight: 600;
+      line-height: 1.3;
     }
 
     /* ===== 録音タイマー ===== */
@@ -491,6 +485,9 @@
     }
     #script-textarea.remote-updated { animation: script-flash 0.8s ease-out; }
 
+    /* audio-panelをコンパクトに */
+    #audio-panel { padding: 12px 16px; }
+
     /* ===== 録音中の視覚フィードバック ===== */
     #left-col.recording #audio-panel {
       border-color: var(--accent);
@@ -615,15 +612,6 @@
         </div>
         <div class="vu-bar-wrap">
           <div class="vu-bar" id="vu-bar"></div>
-        </div>
-        <div class="vu-ticks">
-          <span>-60</span>
-          <span>-48</span>
-          <span>-36</span>
-          <span>-24</span>
-          <span>-12</span>
-          <span>-6</span>
-          <span>0dB</span>
         </div>
         <div id="vu-message"></div>
       </div>
@@ -998,8 +986,10 @@ async function joinCall() {
       `;
     }
 
+    // テキストエリアの実際の表示内容を優先してバックアップ（curEp.contentと一致しない場合を考慮）
     const curEp = getActiveEpisode();
-    preJoinScriptContent = curEp ? curEp.content : $('script-textarea').value;
+    const taValue = $('script-textarea').value;
+    preJoinScriptContent = taValue || (curEp ? curEp.content : '');
 
     ws.socket.emit('join-room', { roomId, username });
 
@@ -1260,15 +1250,23 @@ function handleEpisodesSync(data) {
   const serverEpisodes = data.list || [];
   const serverHasContent = serverEpisodes.some(e => e.content && e.content.trim().length > 0);
 
+  // preJoinScriptContent が空の場合でもテキストエリアの現在値をフォールバックとして使う
+  const contentToRestore = (preJoinScriptContent && preJoinScriptContent.trim())
+    ? preJoinScriptContent
+    : ($('script-textarea').value || '').trim()
+      ? $('script-textarea').value
+      : '';
+
   episodeState.episodes = serverEpisodes;
   episodeState.activeId = data.activeId || (serverEpisodes[0] && serverEpisodes[0].id);
 
-  if (!serverHasContent && preJoinScriptContent && preJoinScriptContent.trim()) {
+  // サーバーが空 かつ ローカルに入力済みコンテンツがある → ローカル内容を保持・送信
+  if (!serverHasContent && contentToRestore) {
     const activeEp = getActiveEpisode();
     if (activeEp) {
-      activeEp.content = preJoinScriptContent;
+      activeEp.content = contentToRestore;
       if (ws.socket) {
-        ws.socket.emit('episode-update', { id: activeEp.id, content: preJoinScriptContent });
+        ws.socket.emit('episode-update', { id: activeEp.id, content: contentToRestore });
       }
     }
   }
