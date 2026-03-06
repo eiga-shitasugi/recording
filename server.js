@@ -262,8 +262,15 @@ io.on('connection', (socket) => {
     console.log(`[参加] room=${roomId} user=${username} 人数=${room.size}`);
 
     // エピソードを新規参加者へ送信
+    // hasOtherParticipants: 既存参加者がいたかどうか（クライアントがEP選択判断に使用）
     const eps = getEpisodes(roomId);
-    socket.emit('episodes-sync', eps);
+    const hasOtherParticipants = existingPeers.length > 0;
+    socket.emit('episodes-sync', { ...eps, hasOtherParticipants });
+
+    // 既存参加者がいた場合のみ、現在選択中のEPを room-state で通知
+    if (hasOtherParticipants) {
+      socket.emit('room-state', { currentEpisodeId: eps.activeId });
+    }
   });
 
   // ===== WebRTC シグナリング中継 =====
