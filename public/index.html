@@ -219,12 +219,13 @@
     #video-grid:has(.video-wrapper:only-child) {
       grid-template-columns: 1fr;
       grid-auto-rows: auto;
-      max-height: 240px;
+      max-width: 560px;
+      margin: 0 auto;
     }
     #video-grid .video-wrapper:only-child {
       width: 100%;
       aspect-ratio: 16 / 9;
-      max-height: 240px;
+      max-height: 320px;
     }
     #video-grid .video-wrapper:only-child video {
       object-fit: cover;
