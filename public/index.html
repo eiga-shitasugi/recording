@@ -979,6 +979,7 @@ function updateParticipants() {
 let preJoinScriptContent = '';
 let preJoinActiveId = null;
 let preJoinEpisodes = null;
+let isFirstJoin = false; // 初回参加時のみサーバーのactiveIdを優先するフラグ
 
 async function joinCall() {
   const roomId = $('room-input').value.trim().toUpperCase();
@@ -1033,6 +1034,7 @@ async function joinCall() {
     // 通話参加前のエピソード状態を保存（通話参加後もローカル選択を維持するため）
     preJoinActiveId = episodeState.activeId;
     preJoinEpisodes = JSON.parse(JSON.stringify(episodeState.episodes));
+    isFirstJoin = true; // 初回参加フラグを立てる
 
     ws.socket.emit('join-room', { roomId, username });
 
@@ -1308,13 +1310,19 @@ function handleEpisodesSync(data) {
     // サーバーにコンテンツあり → サーバーのエピソード一覧を使用
     episodeState.episodes = serverEpisodes;
 
-    // ローカルで選択していたエピソードがサーバーにも存在すれば維持
-    const localActiveStillExists = preJoinActiveId && serverEpisodes.find(e => e.id === preJoinActiveId);
-    episodeState.activeId = localActiveStillExists
-      ? preJoinActiveId
-      : (data.activeId || (serverEpisodes[0] && serverEpisodes[0].id));
+    if (isFirstJoin && data.activeId) {
+      // 初回参加時：サーバー側で選択中のエピソードを優先（他参加者の選択に合わせる）
+      episodeState.activeId = data.activeId;
+    } else {
+      // 滞在中の再同期：ローカルで選択していたエピソードを優先
+      const localActiveStillExists = preJoinActiveId && serverEpisodes.find(e => e.id === preJoinActiveId);
+      episodeState.activeId = localActiveStillExists
+        ? preJoinActiveId
+        : (data.activeId || (serverEpisodes[0] && serverEpisodes[0].id));
+    }
   }
 
+  isFirstJoin = false; // 初回参加フラグをリセット
   preJoinScriptContent = '';
   preJoinActiveId = null;
   preJoinEpisodes = null;
