@@ -62,15 +62,39 @@
     #status-bar {
       background: var(--surface2);
       border-bottom: 1px solid var(--border);
-      padding: 7px 24px;
+      padding: 6px 24px;
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 14px;
       flex-wrap: wrap;
       font-size: 0.80rem;
       flex-shrink: 0;
     }
     .status-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    /* ステータスバー内のコンパクトマイク選択 */
+    .status-mic-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 1px 4px;
+      font-size: 0.74rem;
+      font-family: inherit;
+      outline: none;
+      width: auto;
+      max-width: 160px;
+      cursor: pointer;
+      height: 20px;
+    }
+    .status-mic-select:focus { border-color: var(--accent); }
+    /* ステータスバー内のdB表示 */
+    .status-db {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      font-size: 0.78rem;
+      color: var(--teal);
+      min-width: 50px;
+    }
     .dot {
       width: 8px; height: 8px;
       border-radius: 50%;
@@ -195,6 +219,16 @@
       max-height: 320px;
       overflow: hidden;
     }
+    /* 1人参加時：ビデオをグリッド全幅・アスペクト比に合わせて表示 */
+    #video-grid:has(.video-wrapper:only-child) {
+      grid-template-columns: 1fr;
+      grid-auto-rows: auto;
+      max-height: none;
+    }
+    #video-grid .video-wrapper:only-child {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+    }
     .video-wrapper {
       position: relative; background: #000;
       border-radius: 10px; overflow: hidden;
@@ -272,11 +306,11 @@
 
     /* ===== VUメーター ===== */
     .vu-container {
-      padding: 7px 10px;
+      padding: 6px 10px;
       background: #111;
       border: 1px solid var(--border);
       border-radius: 8px;
-      margin-top: 10px;
+      margin-top: 0;
     }
     .vu-label {
       font-size: 0.74rem;
@@ -541,6 +575,10 @@
   <div class="status-item">
     <div class="dot" id="dot-mic"></div>
     <span id="label-mic">マイク：未接続</span>
+    <select id="mic-select" class="status-mic-select">
+      <option value="">（検出中...）</option>
+    </select>
+    <span class="status-db" id="vu-db-label">— dB</span>
   </div>
   <div class="status-item">
     <div class="dot" id="dot-local-rec"></div>
@@ -606,20 +644,9 @@
       </div>
     </div>
 
-    <!-- マイク・VU・録音コントロール（常時表示） -->
+    <!-- VU・録音コントロール（常時表示） -->
     <div class="card" id="audio-panel">
-      <div class="form-row" style="margin-bottom:0">
-        <label for="mic-select">使用するマイク</label>
-        <select id="mic-select">
-          <option value="">（マイクを検出中...）</option>
-        </select>
-      </div>
-
-      <div class="vu-container" id="vu-container">
-        <div class="vu-label">
-          <span>🎚️ 音量レベル</span>
-          <span class="vu-db" id="vu-db-label">— dB</span>
-        </div>
+      <div class="vu-container" id="vu-container" style="margin-top:0">
         <div class="vu-bar-wrap">
           <div class="vu-bar" id="vu-bar"></div>
         </div>
@@ -627,7 +654,7 @@
       </div>
 
       <!-- 録音コントロール -->
-      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
         <span id="rec-timer-inline"></span>
         <button class="btn btn-record" id="btn-start">⏺ 録音開始</button>
         <button class="btn btn-stop" id="btn-stop" disabled>⏹ 停止・変換</button>
