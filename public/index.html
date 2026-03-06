@@ -189,20 +189,20 @@
     #video-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-auto-rows: 220px;
       gap: 8px;
       margin-bottom: 10px;
-      min-height: 120px;
       max-height: 320px;
       overflow: hidden;
     }
     .video-wrapper {
       position: relative; background: #000;
       border-radius: 10px; overflow: hidden;
-      aspect-ratio: 4/3; border: 2px solid var(--border);
+      border: 2px solid var(--border);
     }
     .video-wrapper.local-wrapper  { border-color: var(--teal); }
     .video-wrapper.remote-wrapper { border-color: var(--border); }
-    .video-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .video-wrapper video { width: 100%; height: 100%; object-fit: contain; display: block; }
     .local-wrapper video { transform: scaleX(-1); }
     .video-label {
       position: absolute; bottom: 6px; left: 6px;
