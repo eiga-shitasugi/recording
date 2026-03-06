@@ -87,13 +87,9 @@
       height: 20px;
     }
     .status-mic-select:focus { border-color: var(--accent); }
-    /* ステータスバー内のdB表示 */
+    /* ステータスバー内のdB表示（非表示） */
     .status-db {
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-      font-size: 0.78rem;
-      color: var(--teal);
-      min-width: 50px;
+      display: none;
     }
     .dot {
       width: 8px; height: 8px;
@@ -219,15 +215,19 @@
       max-height: 320px;
       overflow: hidden;
     }
-    /* 1人参加時：ビデオをグリッド全幅・アスペクト比に合わせて表示 */
+    /* 1人参加時：Discord風の横長表示 */
     #video-grid:has(.video-wrapper:only-child) {
       grid-template-columns: 1fr;
       grid-auto-rows: auto;
-      max-height: none;
+      max-height: 240px;
     }
     #video-grid .video-wrapper:only-child {
       width: 100%;
-      aspect-ratio: 4 / 3;
+      aspect-ratio: 16 / 9;
+      max-height: 240px;
+    }
+    #video-grid .video-wrapper:only-child video {
+      object-fit: cover;
     }
     .video-wrapper {
       position: relative; background: #000;
