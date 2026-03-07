@@ -965,6 +965,23 @@ function addRemoteVideo(peerId, stream) {
   wrapper.appendChild(video);
   wrapper.appendChild(label);
   $('video-grid').appendChild(wrapper);
+  updateVideoGridLayout();
+}
+
+function updateVideoGridLayout() {
+  const grid = $('video-grid');
+  const wrappers = grid.querySelectorAll('.video-wrapper');
+  if (wrappers.length <= 1) {
+    grid.style.gridTemplateColumns = '1fr';
+    grid.style.gridAutoRows = 'auto';
+    grid.style.maxWidth = '560px';
+    grid.style.margin = '0 auto';
+  } else {
+    grid.style.gridTemplateColumns = '';
+    grid.style.gridAutoRows = '';
+    grid.style.maxWidth = '';
+    grid.style.margin = '';
+  }
 }
 
 function removePeer(peerId) {
@@ -972,6 +989,7 @@ function removePeer(peerId) {
   if (pc) { pc.close(); delete ws.peers[peerId]; }
   const wrapper = $(`wrapper-${peerId}`);
   if (wrapper) wrapper.remove();
+  updateVideoGridLayout();
 }
 
 function updateParticipants() {
