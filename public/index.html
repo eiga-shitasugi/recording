@@ -1833,9 +1833,24 @@ function stopRecording() {
 
 async function finalizeRecording() {
   const sessionId = state.sessionId;
+  const mimeType = state.mimeType || 'audio/webm;codecs=opus';
 
-  if (state.chunks.length === 0) {
-    console.warn('[録音] チャンクが空です');
+  // 残っているメモリ上のチャンクをIDBに先に保存する
+  if (state.chunks.length > 0) {
+    state.chunkCount++;
+    const snap = [...state.chunks];
+    state.chunks = [];
+    const snapBlob = new Blob(snap, { type: mimeType });
+    if (snapBlob.size > 0) {
+      await idbSaveChunk(sessionId, state.chunkCount, snapBlob, mimeType);
+    }
+  }
+
+  // IDBから全チャンクを読み出して結合する（ヘッダーチャンクを含む完全なWebMになる）
+  const idbChunks = await idbGetChunks(sessionId);
+
+  if (idbChunks.length === 0) {
+    console.warn('[録音] チャンクが空です（IDB含む）');
     setDot('local-rec', 'warn');
     $('label-local-rec').textContent = 'ローカル録音：停止中（データなし）';
     setFooterStatus('local', 'warn', 'データなし');
@@ -1843,9 +1858,7 @@ async function finalizeRecording() {
     return;
   }
 
-  const mimeType = state.mimeType || 'audio/webm;codecs=opus';
-  const blob = new Blob(state.chunks, { type: mimeType });
-  state.chunks = [];
+  const blob = new Blob(idbChunks.map(c => c.blob), { type: mimeType });
 
   if (blob.size === 0) {
     console.warn('[録音] Blobサイズが0です');
