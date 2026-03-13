@@ -11,16 +11,20 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
-  maxHttpBufferSize: 100 * 1024 * 1024 // 100MB
+  maxHttpBufferSize: 100 * 1024 * 1024, // 100MB
+  pingTimeout: 60000,   // 1分でタイムアウト
+  pingInterval: 25000,  // 25秒ごとにping
 });
 
 const PORT = process.env.PORT || 3000;
 
 // 録音ファイル保存先
 const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+// エピソード永続化保存先
+const episodesDir = path.join(__dirname, 'episodes');
+if (!fs.existsSync(episodesDir)) fs.mkdirSync(episodesDir, { recursive: true });
 
 // ユーティリティ
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -36,7 +40,7 @@ function getTimestampParts() {
   return { dateStr, timeStr };
 }
 
-// multer 設定（WebM一時保存用 → /tmp に保存してFFmpegで変換）
+// multer 設定（WebM一時保存用）
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, os.tmpdir()),
   filename: (req, file, cb) => {
@@ -69,7 +73,7 @@ function convertToFlac(inputPath, outputPath) {
       else reject(new Error(`FFmpeg失敗 (code ${code}): ${stderr.slice(-300)}`));
     });
     ffmpeg.on('error', (err) => {
-      reject(new Error(`FFmpeg起動エラー: ${err.message}。FFmpegがインストールされているか確認してください。`));
+      reject(new Error(`FFmpeg起動エラー: ${err.message}`));
     });
   });
 }
@@ -88,7 +92,7 @@ app.post('/convert-to-flac', upload.single('audio'), async (req, res) => {
   try {
     await convertToFlac(inputPath, outputPath);
     const stat = fs.statSync(outputPath);
-    console.log(`[FLAC変換完了] ${outputFilename} (${(stat.size / 1024).toFixed(1)} KB)`);
+    console.log(`[FLAC変換完了] ${outputFilename} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
     res.json({ success: true, filename: outputFilename, size: stat.size });
   } catch (err) {
     console.error('[FLAC変換エラー]', err.message);
@@ -124,14 +128,65 @@ app.get('/recordings/:filename', (req, res) => {
 });
 
 // =========================================================
-// ===== サーバー側録音管理 =====
-// socketId -> { writeStream, tempPath, username, dateStr, timeStr }
+// ===== エピソード永続化 =====
 // =========================================================
+const episodeSaveTimers = new Map(); // roomId -> timer
+
+function getEpisodesFilePath(roomId) {
+  return path.join(episodesDir, `${roomId}.json`);
+}
+
+function loadEpisodesFromDisk(roomId) {
+  const filePath = getEpisodesFilePath(roomId);
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function scheduleEpisodeSave(roomId) {
+  if (episodeSaveTimers.has(roomId)) clearTimeout(episodeSaveTimers.get(roomId));
+  const timer = setTimeout(() => {
+    episodeSaveTimers.delete(roomId);
+    const eps = roomEpisodes.get(roomId);
+    if (eps) {
+      try {
+        fs.writeFileSync(getEpisodesFilePath(roomId), JSON.stringify(eps), 'utf8');
+        console.log(`[エピソード保存] room=${roomId}`);
+      } catch (err) {
+        console.error('[エピソード保存エラー]', err.message);
+      }
+    }
+  }, 2000);
+  episodeSaveTimers.set(roomId, timer);
+}
+
+// エピソード取得API（台本共有・インポート用）
+app.get('/api/episodes/:roomId', (req, res) => {
+  const roomId = req.params.roomId.trim().toUpperCase().slice(0, 12);
+  if (!roomId) return res.status(400).json({ error: 'roomIdが必要です' });
+  const inMemory = roomEpisodes.get(roomId);
+  if (inMemory) return res.json(inMemory);
+  const fromDisk = loadEpisodesFromDisk(roomId);
+  if (fromDisk) return res.json(fromDisk);
+  res.status(404).json({ error: 'エピソードが見つかりません' });
+});
+
+// =========================================================
+// ===== サーバー側録音管理（username:roomId キーで再接続対応）=====
+// =========================================================
+
+// key: `${roomId}:${username}` -> { writeStream, tempPath, username, roomId, dateStr, timeStr, currentSocketId }
 const serverRecordings = new Map();
 
-async function finalizeServerRecording(socketId) {
-  const rec = serverRecordings.get(socketId);
-  serverRecordings.delete(socketId);
+// key: `${roomId}:${username}` -> timer（切断後グレース期間タイマー）
+const finalizationTimers = new Map();
+
+const FINALIZATION_GRACE_MS = 45000; // 45秒グレース期間（再接続待機）
+
+async function finalizeServerRecording(rec) {
   if (!rec) return;
 
   // writeStreamを確実に閉じる
@@ -158,19 +213,47 @@ async function finalizeServerRecording(socketId) {
   try {
     await convertToFlac(tempPath, outputPath);
     const outStat = fs.statSync(outputPath);
-    console.log(`[サーバー録音保存] ${outputFilename} (${(outStat.size / 1024).toFixed(1)} KB)`);
+    console.log(`[サーバー録音保存] ${outputFilename} (${(outStat.size / 1024 / 1024).toFixed(1)} MB)`);
   } catch (err) {
-    console.error(`[サーバー録音変換エラー] ${socketId}:`, err.message);
+    console.error(`[サーバー録音変換エラー] ${username}:`, err.message);
+    // 変換失敗時はWebMとして保存（フォールバック）
+    try {
+      const fallbackPath = path.join(uploadsDir, `surecast-${username}-${dateStr}-${timeStr}-raw.webm`);
+      fs.copyFileSync(tempPath, fallbackPath);
+      console.log(`[サーバー録音フォールバック保存] ${path.basename(fallbackPath)}`);
+    } catch {}
   } finally {
     try { fs.unlinkSync(tempPath); } catch {}
   }
 }
 
+function scheduleFinalization(recKey) {
+  // 既存タイマーをキャンセル
+  if (finalizationTimers.has(recKey)) {
+    clearTimeout(finalizationTimers.get(recKey));
+  }
+
+  const timer = setTimeout(async () => {
+    finalizationTimers.delete(recKey);
+    const rec = serverRecordings.get(recKey);
+    if (rec) {
+      serverRecordings.delete(recKey);
+      console.log(`[サーバー録音グレース期間終了] key=${recKey} → FLAC変換開始`);
+      await finalizeServerRecording(rec).catch(e =>
+        console.error('[録音終了エラー]', e.message)
+      );
+    }
+  }, FINALIZATION_GRACE_MS);
+
+  finalizationTimers.set(recKey, timer);
+  console.log(`[サーバー録音] ${recKey} → ${FINALIZATION_GRACE_MS/1000}秒後に保存（再接続待機中）`);
+}
+
 // =========================================================
 // ===== WebRTC シグナリング =====
 // =========================================================
-const rooms = new Map();        // roomId -> Set<socketId>
-const roomEpisodes = new Map(); // roomId -> { list, activeId }
+const rooms = new Map();         // roomId -> Set<socketId>
+const roomEpisodes = new Map();  // roomId -> { list, activeId }
 const roomUsernames = new Map(); // roomId -> Map<socketId, username>
 
 function genId() {
@@ -179,8 +262,15 @@ function genId() {
 
 function getEpisodes(roomId) {
   if (!roomEpisodes.has(roomId)) {
-    const ep = { id: genId(), name: 'EP1', content: '' };
-    roomEpisodes.set(roomId, { list: [ep], activeId: ep.id });
+    // ディスクから復元を試みる
+    const saved = loadEpisodesFromDisk(roomId);
+    if (saved) {
+      roomEpisodes.set(roomId, saved);
+      console.log(`[エピソード復元] room=${roomId}`);
+    } else {
+      const ep = { id: genId(), name: 'EP1', content: '' };
+      roomEpisodes.set(roomId, { list: [ep], activeId: ep.id });
+    }
   }
   return roomEpisodes.get(roomId);
 }
@@ -189,17 +279,22 @@ function leaveRoom(socket) {
   const roomId = socket.data.roomId;
   if (!roomId) return;
 
-  // サーバー側録音を終了・保存
-  finalizeServerRecording(socket.id).catch(e =>
-    console.error('[録音終了エラー]', e.message)
-  );
+  // サーバー録音：グレース期間付きで最終化をスケジュール
+  const recKey = socket.data.recKey;
+  if (recKey) {
+    const rec = serverRecordings.get(recKey);
+    if (rec && rec.currentSocketId === socket.id) {
+      scheduleFinalization(recKey);
+    }
+    socket.data.recKey = null;
+  }
 
   const room = rooms.get(roomId);
   if (room) {
     room.delete(socket.id);
     if (room.size === 0) {
       rooms.delete(roomId);
-      roomEpisodes.delete(roomId);
+      roomEpisodes.delete(roomId); // メモリ解放（ディスクには保存済み）
     }
   }
 
@@ -246,14 +341,13 @@ io.on('connection', (socket) => {
     if (!roomUsernames.has(roomId)) roomUsernames.set(roomId, new Map());
     const usernameMap = roomUsernames.get(roomId);
 
-    // 既存参加者のリスト（ユーザー名付き）
+    // 既存参加者のリスト
     const existingPeers = [...room].map(id => ({
       peerId: id,
       username: usernameMap.get(id) || 'user',
     }));
     socket.emit('room-peers', existingPeers);
 
-    // 自分の情報を登録
     usernameMap.set(socket.id, username);
     socket.to(roomId).emit('peer-joined', { peerId: socket.id, username });
 
@@ -261,13 +355,10 @@ io.on('connection', (socket) => {
     socket.data.roomId = roomId;
     console.log(`[参加] room=${roomId} user=${username} 人数=${room.size}`);
 
-    // エピソードを新規参加者へ送信
-    // hasOtherParticipants: 既存参加者がいたかどうか（クライアントがEP選択判断に使用）
     const eps = getEpisodes(roomId);
     const hasOtherParticipants = existingPeers.length > 0;
     socket.emit('episodes-sync', { ...eps, hasOtherParticipants });
 
-    // 既存参加者がいた場合のみ、現在選択中のEPを room-state で通知
     if (hasOtherParticipants) {
       socket.emit('room-state', { currentEpisodeId: eps.activeId });
     }
@@ -295,6 +386,7 @@ io.on('connection', (socket) => {
     eps.list.push(ep);
     eps.activeId = ep.id;
     io.to(roomId).emit('episodes-sync', eps);
+    scheduleEpisodeSave(roomId);
   });
 
   socket.on('episode-select', ({ id }) => {
@@ -315,6 +407,7 @@ io.on('connection', (socket) => {
     if (ep) {
       ep.content = content;
       socket.to(roomId).emit('episode-updated', { id, content });
+      scheduleEpisodeSave(roomId);
     }
   });
 
@@ -326,6 +419,7 @@ io.on('connection', (socket) => {
     if (ep) {
       ep.name = String(name).slice(0, 30) || 'EP';
       io.to(roomId).emit('episodes-sync', eps);
+      scheduleEpisodeSave(roomId);
     }
   });
 
@@ -337,6 +431,7 @@ io.on('connection', (socket) => {
     eps.list = eps.list.filter(e => e.id !== id);
     if (eps.activeId === id) eps.activeId = eps.list[0].id;
     io.to(roomId).emit('episodes-sync', eps);
+    scheduleEpisodeSave(roomId);
   });
 
   socket.on('script-typing', (isTyping) => {
@@ -346,7 +441,7 @@ io.on('connection', (socket) => {
   });
 
   // =========================================================
-  // ===== サーバー側録音（Craig方式） =====
+  // ===== サーバー側録音（username:roomId キーで再接続対応）=====
   // =========================================================
 
   // 録音開始
@@ -354,19 +449,51 @@ io.on('connection', (socket) => {
     const username = safeUsername(
       (data && data.username) || socket.data.username || 'user'
     );
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+
+    const recKey = `${roomId}:${username}`;
+    socket.data.recKey = recKey;
+
+    // グレース期間中のタイマーをキャンセル（再接続）
+    if (finalizationTimers.has(recKey)) {
+      clearTimeout(finalizationTimers.get(recKey));
+      finalizationTimers.delete(recKey);
+      console.log(`[サーバー録音再開] key=${recKey} (再接続による継続)`);
+    }
+
+    // 既存録音がある場合はソケットを更新して継続
+    if (serverRecordings.has(recKey)) {
+      const rec = serverRecordings.get(recKey);
+      if (rec.writeStream && !rec.writeStream.destroyed) {
+        rec.currentSocketId = socket.id;
+        console.log(`[サーバー録音継続] key=${recKey} newSocket=${socket.id}`);
+        return;
+      }
+      // writeStreamが壊れている場合は新規作成
+      serverRecordings.delete(recKey);
+    }
+
+    // 新規録音開始
     const { dateStr, timeStr } = getTimestampParts();
-    const tempPath = path.join(os.tmpdir(), `surecast-srv-${socket.id}.webm`);
+    const safeKey = recKey.replace(/[^a-zA-Z0-9]/g, '_');
+    const tempPath = path.join(os.tmpdir(), `surecast-srv-${safeKey}-${Date.now()}.webm`);
 
     try {
       const writeStream = fs.createWriteStream(tempPath);
-      serverRecordings.set(socket.id, {
+      writeStream.on('error', (err) => {
+        console.error(`[WriteStream エラー] key=${recKey}:`, err.message);
+      });
+      serverRecordings.set(recKey, {
         writeStream,
         tempPath,
         username,
+        roomId,
         dateStr,
         timeStr,
+        currentSocketId: socket.id,
       });
-      console.log(`[サーバー録音開始] user=${username} socket=${socket.id}`);
+      console.log(`[サーバー録音開始] key=${recKey} file=${path.basename(tempPath)}`);
     } catch (err) {
       console.error('[サーバー録音開始エラー]', err.message);
     }
@@ -374,8 +501,13 @@ io.on('connection', (socket) => {
 
   // 音声チャンク受信（バイナリ）
   socket.on('audio-stream-chunk', (data) => {
-    const rec = serverRecordings.get(socket.id);
-    if (!rec || !rec.writeStream || rec.writeStream.destroyed) return;
+    const recKey = socket.data.recKey;
+    if (!recKey) return;
+    const rec = serverRecordings.get(recKey);
+    if (!rec) return;
+    // アクティブなソケットからのデータのみ受け入れ
+    if (rec.currentSocketId !== socket.id) return;
+    if (!rec.writeStream || rec.writeStream.destroyed) return;
     try {
       rec.writeStream.write(Buffer.from(data));
     } catch (err) {
@@ -383,11 +515,26 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 録音停止・保存
+  // 録音停止・即時保存
   socket.on('stop-server-recording', () => {
-    finalizeServerRecording(socket.id).catch(e =>
-      console.error('[録音停止エラー]', e.message)
-    );
+    const recKey = socket.data.recKey;
+    if (!recKey) return;
+    socket.data.recKey = null;
+
+    // グレースタイマーをキャンセル
+    if (finalizationTimers.has(recKey)) {
+      clearTimeout(finalizationTimers.get(recKey));
+      finalizationTimers.delete(recKey);
+    }
+
+    const rec = serverRecordings.get(recKey);
+    if (rec) {
+      serverRecordings.delete(recKey);
+      console.log(`[サーバー録音停止] key=${recKey} → 即時FLAC変換`);
+      finalizeServerRecording(rec).catch(e =>
+        console.error('[録音停止エラー]', e.message)
+      );
+    }
   });
 
   // ===== 退出・切断 =====
@@ -402,5 +549,6 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`\n🎙️  SureCast サーバー起動`);
   console.log(`   URL: http://localhost:${PORT}`);
-  console.log(`   録音保存先: ${uploadsDir}\n`);
+  console.log(`   録音保存先: ${uploadsDir}`);
+  console.log(`   エピソード保存先: ${episodesDir}\n`);
 });

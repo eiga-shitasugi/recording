@@ -681,8 +681,11 @@
         <button id="btn-ep-add" title="エピソードを追加">+ EP追加</button>
         <div id="episode-actions">
           <button class="ep-action-btn" id="btn-ep-rename" title="名前変更">✏ 名前変更</button>
+          <button class="ep-action-btn" id="btn-script-import" title="テキストファイルを読み込む">📂 読込</button>
+          <button class="ep-action-btn" id="btn-script-export" title="テキストファイルとして保存">💾 保存</button>
           <button class="ep-action-btn danger" id="btn-ep-delete" title="削除">🗑 削除</button>
         </div>
+        <input type="file" id="script-file-input" accept=".txt,.md,.text" style="display:none">
       </div>
 
       <textarea
@@ -1227,7 +1230,7 @@ async function startServerRecording(username) {
       }
     };
 
-    srvRecMR.start(1000);
+    srvRecMR.start(3000); // 3秒チャンク（安定性重視）
     srvRecActive = true;
 
     setDot('srv-rec', 'srv-rec');
@@ -1445,6 +1448,62 @@ function deleteEpisode() {
 $('btn-ep-add').addEventListener('click', addEpisode);
 $('btn-ep-rename').addEventListener('click', renameEpisode);
 $('btn-ep-delete').addEventListener('click', deleteEpisode);
+
+// ===== 台本ファイル インポート =====
+$('btn-script-import').addEventListener('click', () => {
+  $('script-file-input').click();
+});
+
+$('script-file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const content = ev.target.result;
+    const ep = getActiveEpisode();
+    if (!ep) return;
+
+    if (ep.content && ep.content.trim() &&
+        !confirm(`「${ep.name}」の内容を上書きしますか？\n（現在の内容は失われます）`)) {
+      return;
+    }
+
+    ep.content = content;
+    $('script-textarea').value = content;
+
+    if (ws.inCall && ws.socket) {
+      ws.socket.emit('episode-update', { id: ep.id, content });
+      updateSyncBadge('synced');
+    } else {
+      saveLocalEpisodes();
+    }
+    showToast(`「${file.name}」を読み込みました`, 'success');
+  };
+  reader.onerror = () => showToast('ファイルの読み込みに失敗しました', 'error');
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = ''; // リセット（同ファイルの再アップを可能に）
+});
+
+// ===== 台本ファイル エクスポート =====
+$('btn-script-export').addEventListener('click', () => {
+  const ep = getActiveEpisode();
+  if (!ep) return;
+  const content = $('script-textarea').value;
+  if (!content.trim()) {
+    showToast('エクスポートする内容がありません', 'error');
+    return;
+  }
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${ep.name}-script.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`「${ep.name}」をエクスポートしました`, 'success');
+});
 
 function updateSyncBadge(state) {
   const badge = $('sync-badge');
@@ -1689,10 +1748,10 @@ async function checkRecovery() {
     if (blob.size === 0) { banner.classList.remove('visible'); return; }
 
     const username = getUserName();
-    addConvertStatus('recover', '変換中（クラッシュ復元）...', 'converting');
+    addConvertStatus('recover', `変換中（クラッシュ復元）... ${formatSize(blob.size)}`, 'converting');
     try {
       const data = await uploadForFlacConversion(blob, username);
-      updateConvertStatus('recover', `✓ 復元保存完了：${data.filename}`, 'done');
+      updateConvertStatus('recover', `✓ 復元保存完了：${data.filename} (${formatSize(data.size)})`, 'done');
     } catch (err) {
       updateConvertStatus('recover', `⚠️ 変換失敗：${err.message}`, 'error');
     }
@@ -1715,12 +1774,11 @@ async function checkRecovery() {
 const state = {
   mediaRecorder: null,
   stream: null,
-  chunks: [],
+  chunks: [],        // メモリ上のチャンク（全件保持）
   isRecording: false,
   startTime: null,
   timerInterval: null,
-  chunkInterval: null,
-  chunkCount: 0,
+  chunkCount: 0,     // IDBバックアップ用インデックス
   mimeType: '',
   sessionId: '',
 };
@@ -1792,20 +1850,27 @@ async function startRecording() {
 
     state.mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) {
+        // メモリに保持（主要パス）
         state.chunks.push(e.data);
+        // IDBにバックアップ保存（クラッシュリカバリー用・失敗しても録音は続く）
+        if (idb && state.sessionId) {
+          state.chunkCount++;
+          const idx = state.chunkCount;
+          const sid = state.sessionId;
+          const mt = state.mimeType;
+          idbSaveChunk(sid, idx, e.data, mt).catch(() => {});
+        }
       }
     };
 
     state.mediaRecorder.onstop = finalizeRecording;
-    state.mediaRecorder.start(1000);
+    state.mediaRecorder.start(5000); // 5秒チャンク（メモリ効率とクラッシュ安全性のバランス）
 
     state.isRecording = true;
     state.startTime = Date.now();
 
     setRecordingUI(true);
     startTimer();
-
-    state.chunkInterval = setInterval(saveChunkToIDB, 30000);
 
     setDot('local-rec', 'active');
     $('label-local-rec').textContent = 'ローカル録音：収録中';
@@ -1819,7 +1884,6 @@ async function startRecording() {
 
 function stopRecording() {
   if (!state.mediaRecorder || state.mediaRecorder.state === 'inactive') return;
-  clearInterval(state.chunkInterval);
   clearInterval(state.timerInterval);
   state.mediaRecorder.stop();
   state.stream?.getTracks().forEach(t => t.stop());
@@ -1834,23 +1898,27 @@ function stopRecording() {
 async function finalizeRecording() {
   const sessionId = state.sessionId;
   const mimeType = state.mimeType || 'audio/webm;codecs=opus';
+  const memoryChunks = [...state.chunks]; // メモリチャンクをコピー
+  state.chunks = []; // クリア
 
-  // 残っているメモリ上のチャンクをIDBに先に保存する
-  if (state.chunks.length > 0) {
-    state.chunkCount++;
-    const snap = [...state.chunks];
-    state.chunks = [];
-    const snapBlob = new Blob(snap, { type: mimeType });
-    if (snapBlob.size > 0) {
-      await idbSaveChunk(sessionId, state.chunkCount, snapBlob, mimeType);
+  let finalBlob = null;
+
+  if (memoryChunks.length > 0) {
+    // ★ メインパス：メモリチャンクを使用（確実）
+    finalBlob = new Blob(memoryChunks, { type: mimeType });
+    console.log(`[録音] メモリチャンク ${memoryChunks.length}個 → ${formatSize(finalBlob.size)}`);
+  } else {
+    // フォールバック：IDBから読み出し（メモリが空の場合）
+    console.warn('[録音] メモリチャンクが空 → IDBからフォールバック');
+    const idbChunks = await idbGetChunks(sessionId);
+    if (idbChunks.length > 0) {
+      finalBlob = new Blob(idbChunks.map(c => c.blob), { type: mimeType });
+      console.log(`[録音] IDBチャンク ${idbChunks.length}個 → ${formatSize(finalBlob.size)}`);
     }
   }
 
-  // IDBから全チャンクを読み出して結合する（ヘッダーチャンクを含む完全なWebMになる）
-  const idbChunks = await idbGetChunks(sessionId);
-
-  if (idbChunks.length === 0) {
-    console.warn('[録音] チャンクが空です（IDB含む）');
+  if (!finalBlob || finalBlob.size === 0) {
+    console.warn('[録音] データがありません（メモリ・IDB両方空）');
     setDot('local-rec', 'warn');
     $('label-local-rec').textContent = 'ローカル録音：停止中（データなし）';
     setFooterStatus('local', 'warn', 'データなし');
@@ -1858,23 +1926,12 @@ async function finalizeRecording() {
     return;
   }
 
-  const blob = new Blob(idbChunks.map(c => c.blob), { type: mimeType });
-
-  if (blob.size === 0) {
-    console.warn('[録音] Blobサイズが0です');
-    setDot('local-rec', 'warn');
-    $('label-local-rec').textContent = 'ローカル録音：停止中（ファイルエラー）';
-    setFooterStatus('local', 'warn', 'ファイルエラー');
-    await idbClearSession(sessionId);
-    return;
-  }
-
   const username = getUserName();
   const itemId = 'local-' + sessionId;
-  addConvertStatus(itemId, `変換中... (${formatSize(blob.size)})`, 'converting');
+  addConvertStatus(itemId, `変換中... (${formatSize(finalBlob.size)})`, 'converting');
 
   try {
-    const data = await uploadForFlacConversion(blob, username);
+    const data = await uploadForFlacConversion(finalBlob, username);
     updateConvertStatus(itemId, `✓ 保存完了：${data.filename} (${formatSize(data.size)})`, 'done');
     setDot('local-rec', 'ok');
     $('label-local-rec').textContent = 'ローカル録音：保存完了';
@@ -1891,17 +1948,6 @@ async function finalizeRecording() {
   }
 
   await idbClearSession(sessionId);
-}
-
-async function saveChunkToIDB() {
-  if (state.chunks.length === 0) return;
-  state.chunkCount++;
-  const snap = [...state.chunks];
-  state.chunks = [];
-  const blob = new Blob(snap, { type: state.mimeType || 'audio/webm;codecs=opus' });
-  if (blob.size > 0) {
-    await idbSaveChunk(state.sessionId, state.chunkCount, blob, state.mimeType);
-  }
 }
 
 async function uploadForFlacConversion(blob, username) {
@@ -2004,7 +2050,7 @@ btnStop.addEventListener('click', stopRecording);
 window.addEventListener('beforeunload', (e) => {
   if (state.isRecording) {
     e.preventDefault();
-    e.returnValue = '録音中です。ページを離れると録音が失われます。';
+    e.returnValue = '録音中です。ページを離れると録音データが失われる可能性があります。';
   }
   if (srvRecActive) {
     stopServerRecording();
