@@ -198,7 +198,7 @@ async function finalizeServerRecording(rec) {
     }
   });
 
-  const { tempPath, username, dateStr, timeStr } = rec;
+  const { tempPath, username, dateStr, timeStr, roomId, currentSocketId } = rec;
 
   if (!fs.existsSync(tempPath)) return;
   const inputStat = fs.statSync(tempPath);
@@ -214,13 +214,28 @@ async function finalizeServerRecording(rec) {
     await convertToFlac(tempPath, outputPath);
     const outStat = fs.statSync(outputPath);
     console.log(`[サーバー録音保存] ${outputFilename} (${(outStat.size / 1024 / 1024).toFixed(1)} MB)`);
+    // 録音完了をクライアントに通知
+    if (currentSocketId) {
+      io.to(currentSocketId).emit('server-recording-saved', {
+        filename: outputFilename,
+        size: outStat.size,
+      });
+    }
   } catch (err) {
     console.error(`[サーバー録音変換エラー] ${username}:`, err.message);
     // 変換失敗時はWebMとして保存（フォールバック）
     try {
-      const fallbackPath = path.join(uploadsDir, `surecast-${username}-${dateStr}-${timeStr}-raw.webm`);
+      const fallbackFilename = `surecast-${username}-${dateStr}-${timeStr}-raw.webm`;
+      const fallbackPath = path.join(uploadsDir, fallbackFilename);
       fs.copyFileSync(tempPath, fallbackPath);
-      console.log(`[サーバー録音フォールバック保存] ${path.basename(fallbackPath)}`);
+      console.log(`[サーバー録音フォールバック保存] ${fallbackFilename}`);
+      if (currentSocketId) {
+        io.to(currentSocketId).emit('server-recording-saved', {
+          filename: fallbackFilename,
+          size: fs.statSync(fallbackPath).size,
+          fallback: true,
+        });
+      }
     } catch {}
   } finally {
     try { fs.unlinkSync(tempPath); } catch {}

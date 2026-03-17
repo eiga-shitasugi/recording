@@ -100,6 +100,7 @@
     .dot.active      { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
     .dot.ok          { background: var(--green);  animation: none; }
     .dot.warn        { background: var(--yellow); animation: none; }
+    .dot.converting  { background: var(--teal);   animation: pulse 0.6s ease-in-out infinite; }
     .dot.call-active { background: var(--teal);   animation: pulse 1s ease-in-out infinite; }
     .dot.srv-rec     { background: var(--red);    animation: pulse 0.8s ease-in-out infinite; }
 
@@ -788,17 +789,46 @@ function initSocket() {
 
   ws.socket.on('connect', () => {
     setDot('call', 'ok');
-    $('label-call').textContent = '通話：接続OK';
+    if (ws.inCall && ws.roomId) {
+      // 通話中に再接続した場合：ルームへ自動再参加
+      $('label-call').textContent = `通話：再接続中 → ${ws.roomId}`;
+      const username = getUserName();
+      ws.socket.emit('join-room', { roomId: ws.roomId, username });
+      // サーバー録音も再送
+      if (srvRecActive && srvRecMR && srvRecMR.state !== 'inactive') {
+        ws.socket.emit('start-server-recording', { username });
+        console.log('[再接続] ルーム再参加 + サーバー録音再送:', ws.roomId);
+      }
+      showToast('接続が復旧しました', 'success');
+    } else {
+      $('label-call').textContent = '通話：接続OK';
+    }
   });
 
   ws.socket.on('disconnect', () => {
     setDot('call', 'warn');
-    $('label-call').textContent = '通話：切断（再接続中）';
+    $('label-call').textContent = ws.inCall ? '通話：切断（再接続中...）' : '通話：切断（再接続中）';
   });
 
   ws.socket.on('connect_error', () => {
     setDot('call', 'warn');
     $('label-call').textContent = '通話：接続エラー';
+  });
+
+  // サーバー録音完了通知
+  ws.socket.on('server-recording-saved', ({ filename, size, fallback }) => {
+    const sizeStr = size ? ` (${(size / 1024 / 1024).toFixed(1)} MB)` : '';
+    const label = fallback
+      ? `⚠️ サーバー録音（WebM）：${filename}${sizeStr}`
+      : `✓ サーバー録音完了：${filename}${sizeStr}`;
+    const status = fallback ? 'warn' : 'done';
+    const itemId = 'srv-' + filename;
+    addConvertStatus(itemId, label, status);
+    setDot('srv-rec', fallback ? 'warn' : 'ok');
+    $('label-srv-rec').textContent = fallback ? 'サーバー録音：WebMで保存' : 'サーバー録音：保存完了';
+    setFooterStatus('srv', fallback ? 'warn' : 'ok', $('label-srv-rec').textContent);
+    showToast(fallback ? `録音をWebMで保存しました: ${filename}` : `サーバー録音を保存しました: ${filename}`, fallback ? 'warn' : 'success');
+    console.log('[サーバー録音完了]', filename, sizeStr);
   });
 
   ws.socket.on('room-peers', async (peers) => {
@@ -1180,6 +1210,27 @@ function loadRoomFromUrl() {
   }
 }
 
+async function preloadRoomEpisodes(roomId) {
+  try {
+    const res = await fetch(`/api/episodes/${encodeURIComponent(roomId)}`);
+    if (!res.ok) return; // エピソードなし or エラー → 何もしない
+    const data = await res.json();
+    const episodes = data.list || data.episodes || (Array.isArray(data) ? data : null);
+    if (!episodes || episodes.length === 0) return;
+    const hasContent = episodes.some(e => e.content && e.content.trim().length > 0);
+    if (!hasContent) return;
+
+    // ローカルエピソードをサーバーのもので上書きして表示
+    episodeState.episodes = episodes;
+    episodeState.activeId = data.activeId || episodes[0].id;
+    renderEpisodeTabs();
+    renderActiveEpisode();
+    showToast(`ルーム「${roomId}」の台本を読み込みました`, 'success');
+  } catch (e) {
+    // ネットワークエラーなどは無視
+  }
+}
+
 $('btn-join-call').addEventListener('click', joinCall);
 $('btn-leave-call').addEventListener('click', leaveCall);
 $('btn-mute-audio').addEventListener('click', toggleAudio);
@@ -1258,16 +1309,12 @@ function stopServerRecording() {
   if (ws.socket) ws.socket.emit('stop-server-recording');
   srvRecMR = null;
 
-  setDot('srv-rec', '');
+  setDot('srv-rec', 'converting');
   $('label-srv-rec').textContent = 'サーバー録音：変換中...';
-  setFooterStatus('srv', '', 'サーバー録音：変換中...');
+  setFooterStatus('srv', 'converting', 'サーバー録音：変換中...');
 
-  setTimeout(() => {
-    $('label-srv-rec').textContent = 'サーバー録音：待機中';
-    setFooterStatus('srv', '', 'サーバー録音：待機中');
-  }, 5000);
-
-  console.log('[サーバー録音] 停止・サーバーへ保存指示');
+  console.log('[サーバー録音] 停止・サーバーへ保存指示（完了通知待ち）');
+  // 完了はサーバーから 'server-recording-saved' イベントで通知される
 }
 
 // =========================================================
@@ -2051,6 +2098,17 @@ window.addEventListener('beforeunload', (e) => {
   if (state.isRecording) {
     e.preventDefault();
     e.returnValue = '録音中です。ページを離れると録音データが失われる可能性があります。';
+    // メモリ上の未保存チャンクをIDBに緊急フラッシュ（クラッシュリカバリー用）
+    if (idb && state.sessionId && state.chunks.length > 0) {
+      try {
+        const tx = idb.transaction(['chunks', 'sessions'], 'readwrite');
+        state.chunks.forEach((chunk, i) => {
+          const idx = state.chunkCount - state.chunks.length + i + 1;
+          tx.objectStore('chunks').put({ key: `${state.sessionId}-${idx}`, sessionId: state.sessionId, chunkIndex: idx, blob: chunk, mimeType: state.mimeType });
+        });
+        tx.objectStore('sessions').put({ sessionId: state.sessionId, mimeType: state.mimeType, chunkCount: state.chunkCount, ts: Date.now() });
+      } catch {}
+    }
   }
   if (srvRecActive) {
     stopServerRecording();
@@ -2070,6 +2128,13 @@ window.addEventListener('beforeunload', (e) => {
   await checkServer();
   idb = await openIDB().catch(() => null);
   await checkRecovery();
+
+  // URLにroomパラメータがある場合、事前に台本を読み込む
+  const _initParams = new URLSearchParams(window.location.search);
+  const _initRoom = _initParams.get('room');
+  if (_initRoom) {
+    await preloadRoomEpisodes(_initRoom.trim().toUpperCase());
+  }
 })();
 </script>
 </body>
