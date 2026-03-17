@@ -785,7 +785,14 @@ const ws = {
 
 // ===== Socket.io 初期化 =====
 function initSocket() {
-  ws.socket = io();
+  ws.socket = io({
+    reconnection: true,
+    reconnectionAttempts: Infinity,    // 何度でも再接続
+    reconnectionDelay: 1000,           // 初回1秒後
+    reconnectionDelayMax: 10000,       // 最大10秒間隔（貧弱回線では頻繁に試みる）
+    timeout: 30000,                    // 接続タイムアウト30秒
+    retries: 0,                        // イベントバッファリング無効（誤再送防止）
+  });
 
   ws.socket.on('connect', () => {
     setDot('call', 'ok');
@@ -940,13 +947,15 @@ async function createPeer(peerId, isInitiator) {
   if (ws.localStream) {
     ws.localStream.getTracks().forEach(track => {
       const sender = pc.addTrack(track, ws.localStream);
+      const params = sender.getParameters();
+      if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
       if (track.kind === 'video') {
-        const params = sender.getParameters();
-        if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-        params.encodings[0].maxBitrate = 300_000;
+        params.encodings[0].maxBitrate = 200_000; // 200kbps（低回線向けに削減）
         params.encodings[0].maxFramerate = 15;
-        sender.setParameters(params).catch(() => {});
+      } else if (track.kind === 'audio') {
+        params.encodings[0].maxBitrate = 64_000;  // WebRTC音声は64kbps（通話品質として十分）
       }
+      sender.setParameters(params).catch(() => {});
     });
   }
 
@@ -960,8 +969,23 @@ async function createPeer(peerId, isInitiator) {
   };
 
   pc.onconnectionstatechange = () => {
+    console.log(`[WebRTC] ${peerId} connectionState → ${pc.connectionState}`);
     if (pc.connectionState === 'failed') {
+      console.warn(`[WebRTC] ${peerId} 接続失敗 → ICE再起動`);
       try { pc.restartIce(); } catch(e) {}
+    }
+  };
+
+  pc.oniceconnectionstatechange = () => {
+    console.log(`[WebRTC] ${peerId} iceConnectionState → ${pc.iceConnectionState}`);
+    if (pc.iceConnectionState === 'disconnected') {
+      // disconnectedは一時的な可能性あり、5秒待ってからrestartIce
+      setTimeout(() => {
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+          console.warn(`[WebRTC] ${peerId} ICE disconnected継続 → 再起動`);
+          try { pc.restartIce(); } catch(e) {}
+        }
+      }, 5000);
     }
   };
 
@@ -1138,7 +1162,7 @@ function leaveCall() {
     <div class="video-label" id="local-video-label">自分</div>
   `;
 
-  if (ws.socket) ws.socket.emit('leave-room');
+  if (ws.socket) ws.socket.volatile.emit('leave-room');
   ws.roomId = null;
   ws.inCall = false;
   ws.audioMuted = false;
@@ -1265,7 +1289,7 @@ async function startServerRecording(username) {
     const mimeType = getBestMimeType();
     srvRecMR = new MediaRecorder(srvRecStream, {
       mimeType: mimeType || undefined,
-      audioBitsPerSecond: 192000,
+      audioBitsPerSecond: 128000, // 128kbps（192→128: 低回線での安定性向上）
     });
 
     ws.socket.emit('start-server-recording', { username });
@@ -1274,7 +1298,7 @@ async function startServerRecording(username) {
       if (e.data && e.data.size > 0 && ws.socket && ws.socket.connected) {
         try {
           const buf = await e.data.arrayBuffer();
-          ws.socket.emit('audio-stream-chunk', buf);
+          ws.socket.volatile.emit('audio-stream-chunk', buf); // volatile: 切断中チャンクは破棄（詰まり防止）
         } catch (err) {
           console.warn('[サーバー録音] チャンク送信エラー:', err);
         }
@@ -1306,7 +1330,7 @@ function stopServerRecording() {
     srvRecStream.getTracks().forEach(t => t.stop());
     srvRecStream = null;
   }
-  if (ws.socket) ws.socket.emit('stop-server-recording');
+  if (ws.socket) ws.socket.volatile.emit('stop-server-recording');
   srvRecMR = null;
 
   setDot('srv-rec', 'converting');
@@ -1892,7 +1916,7 @@ async function startRecording() {
 
     state.mediaRecorder = new MediaRecorder(state.stream, {
       mimeType: state.mimeType || undefined,
-      audioBitsPerSecond: 192000,
+      audioBitsPerSecond: 128000, // 128kbps（ポッドキャスト品質として十分かつ安定）
     });
 
     state.mediaRecorder.ondataavailable = (e) => {

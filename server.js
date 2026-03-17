@@ -12,8 +12,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
   maxHttpBufferSize: 100 * 1024 * 1024, // 100MB
-  pingTimeout: 60000,   // 1分でタイムアウト
-  pingInterval: 25000,  // 25秒ごとにping
+  pingTimeout: 120000,  // 2分でタイムアウト（低品質回線対応）
+  pingInterval: 30000,  // 30秒ごとにping
+  connectTimeout: 60000, // 接続タイムアウト1分
 });
 
 const PORT = process.env.PORT || 3000;
@@ -184,7 +185,7 @@ const serverRecordings = new Map();
 // key: `${roomId}:${username}` -> timer（切断後グレース期間タイマー）
 const finalizationTimers = new Map();
 
-const FINALIZATION_GRACE_MS = 45000; // 45秒グレース期間（再接続待機）
+const FINALIZATION_GRACE_MS = 180000; // 180秒（3分）グレース期間（低品質回線対応）
 
 async function finalizeServerRecording(rec) {
   if (!rec) return;
@@ -202,7 +203,9 @@ async function finalizeServerRecording(rec) {
 
   if (!fs.existsSync(tempPath)) return;
   const inputStat = fs.statSync(tempPath);
-  if (inputStat.size === 0) {
+  const MIN_VALID_SIZE = 50 * 1024; // 50KB未満は音声データなし（EBMLヘッダーのみ）
+  if (inputStat.size < MIN_VALID_SIZE) {
+    console.log(`[サーバー録音スキップ] ${path.basename(tempPath)} サイズ不足 (${inputStat.size} bytes) → 破棄`);
     try { fs.unlinkSync(tempPath); } catch {}
     return;
   }
