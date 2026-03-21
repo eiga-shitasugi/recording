@@ -588,7 +588,7 @@
   </div>
   <div class="status-item">
     <div class="dot" id="dot-srv-rec"></div>
-    <span id="label-srv-rec">サーバー録音：録音ボタンで開始</span>
+    <span id="label-srv-rec">サーバー録音：待機中</span>
   </div>
   <div class="status-item">
     <div class="dot" id="dot-call"></div>
@@ -641,6 +641,7 @@
         <div id="call-controls">
           <button class="btn btn-ghost" id="btn-mute-audio">🎙️ ミュート</button>
           <button class="btn btn-ghost" id="btn-mute-video">📹 カメラOFF</button>
+          <button class="btn btn-record" id="btn-rec-all" title="参加中の全員のローカル録音を同時に開始します">⏺ 一斉録音開始</button>
           <button class="btn btn-danger" id="btn-leave-call">📵 通話終了</button>
         </div>
       </div>
@@ -937,6 +938,18 @@ function initSocket() {
     else typingPeers.delete(peerId);
     updateTypingIndicator();
   });
+
+  // ===== 一斉録音開始コマンド受信 =====
+  ws.socket.on('recording-start-command', ({ initiator }) => {
+    if (state.isRecording) {
+      // すでに録音中の場合は無視（途中参加者が個別に録音済みのケース）
+      console.log('[一斉録音] すでに録音中のため無視');
+      return;
+    }
+    showToast(`「${initiator}」が一斉録音を開始しました。ローカル録音を開始します...`, 'info');
+    // 少し間を置いてから開始（トースト表示を見せるため）
+    setTimeout(() => startRecording(), 500);
+  });
 }
 
 // ===== PeerConnection 作成 =====
@@ -1137,11 +1150,7 @@ async function joinCall() {
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
 
-    // ローカル録音がすでに開始されている場合はサーバー録音も同時に開始する
-    // （通話参加前に録音ボタンを押していたケース）
-    if (state.isRecording && !srvRecActive) {
-      startServerRecording(username);
-    }
+    startServerRecording(username);
 
   } catch (err) {
     $('btn-join-call').disabled = false;
@@ -1190,8 +1199,8 @@ function leaveCall() {
   setDot('call', 'ok');
   $('label-call').textContent = '通話：接続OK';
   setDot('srv-rec', '');
-  $('label-srv-rec').textContent = 'サーバー録音：録音ボタンで開始';
-  setFooterStatus('srv', '', 'サーバー録音：録音ボタンで開始');
+  $('label-srv-rec').textContent = 'サーバー録音：待機中';
+  setFooterStatus('srv', '', 'サーバー録音：待機中');
   showToast('通話を終了しました。サーバー録音をFLAC変換中...', 'info');
   updateSyncBadge('offline');
 
@@ -1265,6 +1274,13 @@ $('btn-join-call').addEventListener('click', joinCall);
 $('btn-leave-call').addEventListener('click', leaveCall);
 $('btn-mute-audio').addEventListener('click', toggleAudio);
 $('btn-mute-video').addEventListener('click', toggleVideo);
+
+// 一斉録音開始ボタン
+$('btn-rec-all').addEventListener('click', () => {
+  if (!ws.inCall || !ws.socket) return;
+  if (!confirm('参加中の全員のローカル録音を今すぐ開始します。よろしいですか？')) return;
+  ws.socket.emit('recording-start-all');
+});
 $('btn-random-room').addEventListener('click', () => { $('room-input').value = generateRoomId(); });
 $('btn-copy-url').addEventListener('click', () => {
   navigator.clipboard.writeText($('invite-url-text').textContent)
@@ -1969,12 +1985,6 @@ async function startRecording() {
 
     showToast('録音を開始しました', 'success');
 
-    // 通話中の場合はサーバー録音も同時に開始する
-    // （これによりローカル録音とクラウド録音のタイミングが一致する）
-    if (ws.inCall && !srvRecActive) {
-      startServerRecording(getUserName());
-    }
-
   } catch (err) {
     showToast(`録音開始エラー: ${err.message}`, 'error');
   }
@@ -2169,7 +2179,7 @@ async function checkServer() {
     const res = await fetch('/recordings', { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       setDot('srv-rec', '');
-      $('label-srv-rec').textContent = 'サーバー録音：録音ボタンで開始';
+      $('label-srv-rec').textContent = 'サーバー録音：待機中';
     }
   } catch {
     // サイレントに失敗

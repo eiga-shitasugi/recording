@@ -12,9 +12,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
   maxHttpBufferSize: 100 * 1024 * 1024, // 100MB
-  pingTimeout: 120000,  // 2分でタイムアウト（低品質回線対応）
-  pingInterval: 30000,  // 30秒ごとにping
-  connectTimeout: 60000, // 接続タイムアウト1分
+  pingTimeout: 300000,  // 5分でタイムアウト（ping 1500ms超の低回線対応）
+  pingInterval: 60000,  // 60秒ごとにping（低回線でのタイムアウト誤検知防止）
+  connectTimeout: 120000, // 接続タイムアウト2分
 });
 
 const PORT = process.env.PORT || 3000;
@@ -185,7 +185,7 @@ const serverRecordings = new Map();
 // key: `${roomId}:${username}` -> timer（切断後グレース期間タイマー）
 const finalizationTimers = new Map();
 
-const FINALIZATION_GRACE_MS = 180000; // 180秒（3分）グレース期間（低品質回線対応）
+const FINALIZATION_GRACE_MS = 300000; // 300秒（5分）グレース期間（2時間収録・ping1500ms超の低回線対応）
 
 async function finalizeServerRecording(rec) {
   if (!rec) return;
@@ -517,7 +517,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 音声チャンク受信（バイナリ）
+  // 音声チャンク受信（バイナリ または { seq, buf } オブジェクト）
   socket.on('audio-stream-chunk', (data) => {
     const recKey = socket.data.recKey;
     if (!recKey) return;
@@ -527,7 +527,23 @@ io.on('connection', (socket) => {
     if (rec.currentSocketId !== socket.id) return;
     if (!rec.writeStream || rec.writeStream.destroyed) return;
     try {
-      rec.writeStream.write(Buffer.from(data));
+      // 新形式: { seq, buf } / 旧形式: バイナリ直接
+      let rawData, seq;
+      if (data && typeof data === 'object' && 'buf' in data) {
+        seq = data.seq;
+        rawData = data.buf;
+        // シーケンス番号で欠損チェック
+        if (rec.lastSeq !== undefined && seq !== rec.lastSeq + 1) {
+          console.warn(`[サーバー録音] チャンク欠損検知 key=${recKey} 期待=${rec.lastSeq + 1} 受信=${seq}`);
+        }
+        rec.lastSeq = seq;
+      } else {
+        rawData = data;
+      }
+      rec.writeStream.write(Buffer.from(rawData));
+      if (seq !== undefined) {
+        console.log(`[サーバー録音] チャンク#${seq} 受信 key=${recKey} (${(Buffer.byteLength(Buffer.from(rawData)) / 1024).toFixed(0)} KB)`);
+      }
     } catch (err) {
       console.error('[チャンク書き込みエラー]', err.message);
     }
@@ -553,6 +569,20 @@ io.on('connection', (socket) => {
         console.error('[録音停止エラー]', e.message)
       );
     }
+  });
+
+  // =========================================================
+  // ===== 一斉録音開始 =====
+  // =========================================================
+
+  // 誰かが「一斉録音開始」ボタンを押したらルーム全員に通知
+  socket.on('recording-start-all', () => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+    const initiator = socket.data.username || '不明';
+    console.log(`[一斉録音] room=${roomId} by ${initiator}`);
+    // 送信者自身を含む全員に通知
+    io.to(roomId).emit('recording-start-command', { initiator });
   });
 
   // ===== 退出・切断 =====
