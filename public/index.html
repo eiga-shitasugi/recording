@@ -594,6 +594,10 @@
     <div class="dot" id="dot-call"></div>
     <span id="label-call">通話：未接続</span>
   </div>
+  <div class="status-item">
+    <div class="dot" id="dot-conn"></div>
+    <span id="label-conn">接続品質：－</span>
+  </div>
 </div>
 
 <main>
@@ -939,6 +943,14 @@ function initSocket() {
     updateTypingIndicator();
   });
 
+  // ===== 接続品質RTT計測 =====
+  ws.socket.on('client-pong', () => {
+    if (!rttPingSentAt) return;
+    const rtt = Date.now() - rttPingSentAt;
+    rttPingSentAt = null;
+    updateConnQuality(rtt);
+  });
+
   // ===== 一斉録音開始コマンド受信 =====
   ws.socket.on('recording-start-command', ({ initiator }) => {
     if (state.isRecording) {
@@ -963,11 +975,11 @@ async function createPeer(peerId, isInitiator) {
       const params = sender.getParameters();
       if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
       if (track.kind === 'video') {
-        params.encodings[0].maxBitrate = 80_000;  // 80kbps（ping1500ms超環境・通話品質より安定性優先）
-        params.encodings[0].maxFramerate = 5;      // 5fps（帯域節約）
-        params.encodings[0].scaleResolutionDownBy = 2; // 解像度を半分に
+        params.encodings[0].maxBitrate = 40_000;  // 40kbps（低速回線優先・通話品質は二次）
+        params.encodings[0].maxFramerate = 3;      // 3fps（帯域節約）
+        params.encodings[0].scaleResolutionDownBy = 4; // 解像度を1/4に（最大省帯域）
       } else if (track.kind === 'audio') {
-        params.encodings[0].maxBitrate = 32_000;  // 32kbps（通話音声として十分・録音は別途保存）
+        params.encodings[0].maxBitrate = 20_000;  // 20kbps（音声通話として十分・録音は別途保存）
       }
       sender.setParameters(params).catch(() => {});
     });
@@ -1095,8 +1107,8 @@ async function joinCall() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
-        video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 5, max: 10 }, facingMode: 'user' }
-      }); // 低解像度・低フレームレート（通話品質より録音安定性を優先）
+        video: { width: { ideal: 160 }, height: { ideal: 120 }, frameRate: { ideal: 3, max: 5 }, facingMode: 'user' }
+      }); // 最小解像度・最低フレームレート（録音安定性最優先・通話映像は補助）
     } catch {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1149,6 +1161,7 @@ async function joinCall() {
     $('label-call').textContent = `通話中：${roomId}`;
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
+    startRTTMonitoring();
 
     startServerRecording(username);
 
@@ -1201,6 +1214,7 @@ function leaveCall() {
   setDot('srv-rec', '');
   $('label-srv-rec').textContent = 'サーバー録音：待機中';
   setFooterStatus('srv', '', 'サーバー録音：待機中');
+  stopRTTMonitoring();
   showToast('通話を終了しました。サーバー録音をFLAC変換中...', 'info');
   updateSyncBadge('offline');
 
@@ -1296,6 +1310,7 @@ $('room-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') join
 let srvRecMR = null;
 let srvRecStream = null;
 let srvRecActive = false;
+let srvBufferFullCount = 0; // バッファ詰まり連続カウント（警告用）
 
 async function startServerRecording(username) {
   if (srvRecActive) return;
@@ -1311,10 +1326,11 @@ async function startServerRecording(username) {
     const mimeType = getBestMimeType();
     srvRecMR = new MediaRecorder(srvRecStream, {
       mimeType: mimeType || undefined,
-      audioBitsPerSecond: 96000, // 96kbps（低回線での送信量削減・ポッドキャスト品質として十分）
+      audioBitsPerSecond: 48000, // 48kbps（低速回線対応・音声品質は十分維持）
     });
 
     let srvChunkSeq = 0; // チャンクシーケンス番号（欠損検知用）
+    srvBufferFullCount = 0;
     ws.socket.emit('start-server-recording', { username });
 
     srvRecMR.ondataavailable = async (e) => {
@@ -1322,24 +1338,30 @@ async function startServerRecording(username) {
         try {
           const buf = await e.data.arrayBuffer();
           const seq = ++srvChunkSeq;
-          // バッファ監視：Socket.ioの送信バッファが500KB超えたらvolatileで破棄（メモリ保護）
-          // 通常接続時はバッファ小さく非volatile送信で確実に届ける
+          // バッファ監視：200KB超えたらvolatileで破棄（メモリ保護・輻輳防止）
           const bufSize = ws.socket.io?.engine?.transport?.socket?.bufferedAmount ?? 0;
-          const isBufferFull = bufSize > 500 * 1024;
+          const isBufferFull = bufSize > 200 * 1024;
           if (isBufferFull) {
-            console.warn(`[サーバー録音] バッファ詰まり検知 (${(bufSize/1024).toFixed(0)}KB) → チャンク#${seq}を破棄`);
+            srvBufferFullCount++;
+            console.warn(`[サーバー録音] バッファ詰まり (${(bufSize/1024).toFixed(0)}KB) → チャンク#${seq}を破棄 (連続${srvBufferFullCount}回)`);
             ws.socket.volatile.emit('audio-stream-chunk', { seq, buf });
+            // 3回連続詰まり → ユーザーに警告
+            if (srvBufferFullCount >= 3) {
+              showToast('⚠️ 回線が混雑しています。クラウド録音の一部が欠損する可能性があります', 'error');
+              srvBufferFullCount = 0;
+            }
           } else {
+            srvBufferFullCount = 0; // 正常送信できたらリセット
             ws.socket.emit('audio-stream-chunk', { seq, buf });
           }
-          console.log(`[サーバー録音] チャンク#${seq} 送信 (${(buf.byteLength / 1024).toFixed(0)} KB)`);
+          console.log(`[サーバー録音] チャンク#${seq} 送信 (${(buf.byteLength / 1024).toFixed(0)} KB) buf=${(bufSize/1024).toFixed(0)}KB`);
         } catch (err) {
           console.warn('[サーバー録音] チャンク送信エラー:', err);
         }
       }
     };
 
-    srvRecMR.start(10000); // 10秒チャンク（低回線向け：送信頻度を3分の1に削減）
+    srvRecMR.start(20000); // 20秒チャンク（送信頻度を下げて輻輳リスクを軽減）
     srvRecActive = true;
 
     setDot('srv-rec', 'srv-rec');
@@ -1952,7 +1974,7 @@ async function startRecording() {
 
     state.mediaRecorder = new MediaRecorder(state.stream, {
       mimeType: state.mimeType || undefined,
-      audioBitsPerSecond: 128000, // 128kbps（ポッドキャスト品質として十分かつ安定）
+      audioBitsPerSecond: 64000, // 64kbps（低速回線対応・ポッドキャスト音声として十分）
     });
 
     state.mediaRecorder.ondataavailable = (e) => {
@@ -1971,7 +1993,7 @@ async function startRecording() {
     };
 
     state.mediaRecorder.onstop = finalizeRecording;
-    state.mediaRecorder.start(5000); // 5秒チャンク（メモリ効率とクラッシュ安全性のバランス）
+    state.mediaRecorder.start(10000); // 10秒チャンク（IDB書き込み頻度を下げCPU/IO負荷軽減）
 
     state.isRecording = true;
     state.startTime = Date.now();
@@ -2183,6 +2205,51 @@ async function checkServer() {
     }
   } catch {
     // サイレントに失敗
+  }
+}
+
+// =========================================================
+// ===== 接続品質モニタリング（RTT計測）=====
+// =========================================================
+
+let rttPingSentAt = null;
+let rttInterval = null;
+
+function startRTTMonitoring() {
+  if (rttInterval) return;
+  measureRTT(); // 即時計測
+  rttInterval = setInterval(measureRTT, 15000); // 15秒ごと
+}
+
+function stopRTTMonitoring() {
+  if (rttInterval) { clearInterval(rttInterval); rttInterval = null; }
+  setDot('conn', '');
+  $('label-conn').textContent = '接続品質：－';
+}
+
+function measureRTT() {
+  if (!ws.socket || !ws.socket.connected) return;
+  rttPingSentAt = Date.now();
+  ws.socket.volatile.emit('client-ping'); // volatile: 計測用なので破棄されてもOK
+}
+
+function updateConnQuality(rtt) {
+  const label = $('label-conn');
+  const dot = $('dot-conn');
+  if (!label || !dot) return;
+
+  if (rtt < 150) {
+    dot.className = 'dot ok';
+    label.textContent = `接続品質：良好 (${rtt}ms)`;
+  } else if (rtt < 500) {
+    dot.className = 'dot warn';
+    label.textContent = `接続品質：やや遅い (${rtt}ms)`;
+  } else if (rtt < 1500) {
+    dot.className = 'dot warn';
+    label.textContent = `接続品質：低速 (${rtt}ms)`;
+  } else {
+    dot.className = 'dot active'; // 赤点滅
+    label.textContent = `接続品質：非常に低速 (${rtt}ms) ⚠️`;
   }
 }
 

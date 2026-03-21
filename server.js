@@ -15,6 +15,12 @@ const io = new Server(server, {
   pingTimeout: 300000,  // 5分でタイムアウト（ping 1500ms超の低回線対応）
   pingInterval: 60000,  // 60秒ごとにping（低回線でのタイムアウト誤検知防止）
   connectTimeout: 120000, // 接続タイムアウト2分
+  // シグナリングメッセージ（テキストフレーム）をzlibで圧縮
+  // 音声バイナリデータは既圧縮のためtransports側で除外される
+  perMessageDeflate: {
+    zlibDeflateOptions: { level: 1 }, // 最軽量圧縮（CPU負荷最小）
+    threshold: 2048, // 2KB以上のフレームのみ圧縮
+  },
 });
 
 const PORT = process.env.PORT || 3000;
@@ -583,6 +589,11 @@ io.on('connection', (socket) => {
     console.log(`[一斉録音] room=${roomId} by ${initiator}`);
     // 送信者自身を含む全員に通知
     io.to(roomId).emit('recording-start-command', { initiator });
+  });
+
+  // ===== 接続品質計測（カスタムping-pong）=====
+  socket.on('client-ping', () => {
+    socket.volatile.emit('client-pong'); // volatile: 輻輳時は破棄OK（計測用）
   });
 
   // ===== 退出・切断 =====
