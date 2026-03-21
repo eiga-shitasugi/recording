@@ -588,7 +588,7 @@
   </div>
   <div class="status-item">
     <div class="dot" id="dot-srv-rec"></div>
-    <span id="label-srv-rec">サーバー録音：待機中</span>
+    <span id="label-srv-rec">サーバー録音：録音ボタンで開始</span>
   </div>
   <div class="status-item">
     <div class="dot" id="dot-call"></div>
@@ -788,9 +788,9 @@ function initSocket() {
   ws.socket = io({
     reconnection: true,
     reconnectionAttempts: Infinity,    // 何度でも再接続
-    reconnectionDelay: 1000,           // 初回1秒後
-    reconnectionDelayMax: 10000,       // 最大10秒間隔（貧弱回線では頻繁に試みる）
-    timeout: 30000,                    // 接続タイムアウト30秒
+    reconnectionDelay: 500,            // 初回0.5秒後（早めの再接続）
+    reconnectionDelayMax: 5000,        // 最大5秒間隔（高レイテンシ回線でも素早く復帰）
+    timeout: 120000,                   // 接続タイムアウト2分（ping1500ms超対応）
     retries: 0,                        // イベントバッファリング無効（誤再送防止）
   });
 
@@ -950,10 +950,11 @@ async function createPeer(peerId, isInitiator) {
       const params = sender.getParameters();
       if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
       if (track.kind === 'video') {
-        params.encodings[0].maxBitrate = 200_000; // 200kbps（低回線向けに削減）
-        params.encodings[0].maxFramerate = 15;
+        params.encodings[0].maxBitrate = 80_000;  // 80kbps（ping1500ms超環境・通話品質より安定性優先）
+        params.encodings[0].maxFramerate = 5;      // 5fps（帯域節約）
+        params.encodings[0].scaleResolutionDownBy = 2; // 解像度を半分に
       } else if (track.kind === 'audio') {
-        params.encodings[0].maxBitrate = 64_000;  // WebRTC音声は64kbps（通話品質として十分）
+        params.encodings[0].maxBitrate = 32_000;  // 32kbps（通話音声として十分・録音は別途保存）
       }
       sender.setParameters(params).catch(() => {});
     });
@@ -979,13 +980,14 @@ async function createPeer(peerId, isInitiator) {
   pc.oniceconnectionstatechange = () => {
     console.log(`[WebRTC] ${peerId} iceConnectionState → ${pc.iceConnectionState}`);
     if (pc.iceConnectionState === 'disconnected') {
-      // disconnectedは一時的な可能性あり、5秒待ってからrestartIce
+      // ping 1580ms環境では2秒以内に一時的disconnectedが多発し再起動ループになる
+      // 8秒待ちに設定（RTT×3 + バッファ）
       setTimeout(() => {
         if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
           console.warn(`[WebRTC] ${peerId} ICE disconnected継続 → 再起動`);
           try { pc.restartIce(); } catch(e) {}
         }
-      }, 5000);
+      }, 8000);
     }
   };
 
@@ -1080,8 +1082,8 @@ async function joinCall() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 15 }, facingMode: 'user' }
-      });
+        video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 5, max: 10 }, facingMode: 'user' }
+      }); // 低解像度・低フレームレート（通話品質より録音安定性を優先）
     } catch {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1135,7 +1137,11 @@ async function joinCall() {
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
 
-    startServerRecording(username);
+    // ローカル録音がすでに開始されている場合はサーバー録音も同時に開始する
+    // （通話参加前に録音ボタンを押していたケース）
+    if (state.isRecording && !srvRecActive) {
+      startServerRecording(username);
+    }
 
   } catch (err) {
     $('btn-join-call').disabled = false;
@@ -1184,8 +1190,8 @@ function leaveCall() {
   setDot('call', 'ok');
   $('label-call').textContent = '通話：接続OK';
   setDot('srv-rec', '');
-  $('label-srv-rec').textContent = 'サーバー録音：待機中';
-  setFooterStatus('srv', '', 'サーバー録音：待機中');
+  $('label-srv-rec').textContent = 'サーバー録音：録音ボタンで開始';
+  setFooterStatus('srv', '', 'サーバー録音：録音ボタンで開始');
   showToast('通話を終了しました。サーバー録音をFLAC変換中...', 'info');
   updateSyncBadge('offline');
 
@@ -1289,23 +1295,35 @@ async function startServerRecording(username) {
     const mimeType = getBestMimeType();
     srvRecMR = new MediaRecorder(srvRecStream, {
       mimeType: mimeType || undefined,
-      audioBitsPerSecond: 128000, // 128kbps（192→128: 低回線での安定性向上）
+      audioBitsPerSecond: 96000, // 96kbps（低回線での送信量削減・ポッドキャスト品質として十分）
     });
 
+    let srvChunkSeq = 0; // チャンクシーケンス番号（欠損検知用）
     ws.socket.emit('start-server-recording', { username });
 
     srvRecMR.ondataavailable = async (e) => {
-      if (e.data && e.data.size > 0 && ws.socket && ws.socket.connected) {
+      if (e.data && e.data.size > 0 && ws.socket) {
         try {
           const buf = await e.data.arrayBuffer();
-          ws.socket.volatile.emit('audio-stream-chunk', buf); // volatile: 切断中チャンクは破棄（詰まり防止）
+          const seq = ++srvChunkSeq;
+          // バッファ監視：Socket.ioの送信バッファが500KB超えたらvolatileで破棄（メモリ保護）
+          // 通常接続時はバッファ小さく非volatile送信で確実に届ける
+          const bufSize = ws.socket.io?.engine?.transport?.socket?.bufferedAmount ?? 0;
+          const isBufferFull = bufSize > 500 * 1024;
+          if (isBufferFull) {
+            console.warn(`[サーバー録音] バッファ詰まり検知 (${(bufSize/1024).toFixed(0)}KB) → チャンク#${seq}を破棄`);
+            ws.socket.volatile.emit('audio-stream-chunk', { seq, buf });
+          } else {
+            ws.socket.emit('audio-stream-chunk', { seq, buf });
+          }
+          console.log(`[サーバー録音] チャンク#${seq} 送信 (${(buf.byteLength / 1024).toFixed(0)} KB)`);
         } catch (err) {
           console.warn('[サーバー録音] チャンク送信エラー:', err);
         }
       }
     };
 
-    srvRecMR.start(3000); // 3秒チャンク（安定性重視）
+    srvRecMR.start(10000); // 10秒チャンク（低回線向け：送信頻度を3分の1に削減）
     srvRecActive = true;
 
     setDot('srv-rec', 'srv-rec');
@@ -1823,11 +1841,13 @@ async function checkRecovery() {
     try {
       const data = await uploadForFlacConversion(blob, username);
       updateConvertStatus('recover', `✓ 復元保存完了：${data.filename} (${formatSize(data.size)})`, 'done');
+      await idbClearSession(session.sessionId);
     } catch (err) {
-      updateConvertStatus('recover', `⚠️ 変換失敗：${err.message}`, 'error');
+      // FLAC変換失敗時はWebMとして直接ダウンロード
+      const webmFilename = downloadWebmDirect(blob, username, session.sessionId);
+      updateConvertStatus('recover', `⚠️ FLAC変換失敗 → WebMで保存済み：${webmFilename}`, 'error');
     }
 
-    await idbClearSession(session.sessionId);
     banner.classList.remove('visible');
   };
 
@@ -1948,6 +1968,13 @@ async function startRecording() {
     setFooterStatus('local', 'active', 'ローカル録音：収録中');
 
     showToast('録音を開始しました', 'success');
+
+    // 通話中の場合はサーバー録音も同時に開始する
+    // （これによりローカル録音とクラウド録音のタイミングが一致する）
+    if (ws.inCall && !srvRecActive) {
+      startServerRecording(getUserName());
+    }
+
   } catch (err) {
     showToast(`録音開始エラー: ${err.message}`, 'error');
   }
@@ -1999,7 +2026,7 @@ async function finalizeRecording() {
 
   const username = getUserName();
   const itemId = 'local-' + sessionId;
-  addConvertStatus(itemId, `変換中... (${formatSize(finalBlob.size)})`, 'converting');
+  addConvertStatus(itemId, `FLAC変換・アップロード中... (${formatSize(finalBlob.size)}) ※低回線では時間がかかります`, 'converting');
 
   try {
     const data = await uploadForFlacConversion(finalBlob, username);
@@ -2011,14 +2038,21 @@ async function finalizeRecording() {
       $('label-local-rec').textContent = 'ローカル録音：停止中';
       setFooterStatus('local', '', 'ローカル録音：停止中');
     }, 5000);
+    await idbClearSession(sessionId);
   } catch (err) {
-    updateConvertStatus(itemId, `⚠️ 変換失敗：${err.message}`, 'error');
+    // ★ FLAC変換失敗時：WebMとして直接ダウンロード（低回線でのセーフティネット）
+    console.warn('[録音] FLAC変換失敗 → WebMダウンロードフォールバック:', err.message);
+    const webmFilename = downloadWebmDirect(finalBlob, username, sessionId);
+    updateConvertStatus(itemId,
+      `⚠️ FLAC変換失敗のためWebMで保存済み：${webmFilename}\n（エラー：${err.message}）`,
+      'error'
+    );
     setDot('local-rec', 'warn');
-    $('label-local-rec').textContent = 'ローカル録音：変換失敗';
-    setFooterStatus('local', 'warn', 'ローカル録音：変換失敗');
+    $('label-local-rec').textContent = 'ローカル録音：WebMで保存済み';
+    setFooterStatus('local', 'warn', 'ローカル録音：WebMで保存済み');
+    showToast('FLAC変換に失敗しました。WebMファイルとしてダウンロードしました。', 'error');
+    // IDBは保持しておく（再試行可能なように）
   }
-
-  await idbClearSession(sessionId);
 }
 
 async function uploadForFlacConversion(blob, username) {
@@ -2026,16 +2060,42 @@ async function uploadForFlacConversion(blob, username) {
   formData.append('audio', blob, 'recording.webm');
   formData.append('username', (username || 'user').replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 20));
 
-  const res = await fetch('/convert-to-flac', {
-    method: 'POST',
-    body: formData,
-  });
+  // タイムアウトを10分に設定（低回線での大容量アップロード対応）
+  // 2時間×96kbps ≈ 86MB のアップロードを許容
+  const controller = new AbortController();
+  const uploadTimeout = setTimeout(() => controller.abort(), 10 * 60 * 1000);
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+  try {
+    const res = await fetch('/convert-to-flac', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(uploadTimeout);
   }
-  return res.json();
+}
+
+// WebMとしてブラウザから直接ダウンロード（FLAC変換失敗時のバックアップ）
+function downloadWebmDirect(blob, username, sessionId) {
+  const safeUser = (username || 'user').replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 20);
+  const filename = `surecast-${safeUser}-${sessionId}-local.webm`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  showToast(`WebMとして保存しました: ${filename}`, 'info');
+  return filename;
 }
 
 function addConvertStatus(id, text, type) {
@@ -2109,7 +2169,7 @@ async function checkServer() {
     const res = await fetch('/recordings', { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       setDot('srv-rec', '');
-      $('label-srv-rec').textContent = 'サーバー録音：待機中';
+      $('label-srv-rec').textContent = 'サーバー録音：録音ボタンで開始';
     }
   } catch {
     // サイレントに失敗
@@ -2135,6 +2195,9 @@ window.addEventListener('beforeunload', (e) => {
     }
   }
   if (srvRecActive) {
+    // sendBeacon でサーバーにページ離脱を通知（Socket.io emit は beforeunload で届かないことがある）
+    // サーバー側は切断イベント + グレース期間で対応するので最低限の通知でOK
+    try { navigator.sendBeacon('/api/recording-stop', JSON.stringify({ note: 'beforeunload' })); } catch {}
     stopServerRecording();
   }
 });
