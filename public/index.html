@@ -1958,8 +1958,8 @@ async function startRecording() {
     const deviceId = micSelect.value;
     const constraints = {
       audio: deviceId
-        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
-        : { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
+        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, sampleRate: 44100 }
+        : { echoCancellation: false, noiseSuppression: false, sampleRate: 44100 }
     };
     state.stream = await navigator.mediaDevices.getUserMedia(constraints);
 
@@ -1974,7 +1974,7 @@ async function startRecording() {
 
     state.mediaRecorder = new MediaRecorder(state.stream, {
       mimeType: state.mimeType || undefined,
-      audioBitsPerSecond: 64000, // 64kbps（低速回線対応・ポッドキャスト音声として十分）
+      audioBitsPerSecond: 128000, // 128kbps（高音質・ポッドキャスト推奨）
     });
 
     state.mediaRecorder.ondataavailable = (e) => {
