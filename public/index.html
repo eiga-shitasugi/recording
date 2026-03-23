@@ -958,9 +958,12 @@ function initSocket() {
       console.log('[一斉録音] すでに録音中のため無視');
       return;
     }
-    showToast(`「${initiator}」が一斉録音を開始しました。ローカル録音を開始します...`, 'info');
+    showToast(`「${initiator}」が一斉録音を開始しました。録音を開始します...`, 'info');
     // 少し間を置いてから開始（トースト表示を見せるため）
-    setTimeout(() => startRecording(), 500);
+    setTimeout(() => {
+      startRecording();
+      startServerRecording(getUsername());
+    }, 500);
   });
 }
 
@@ -1162,8 +1165,6 @@ async function joinCall() {
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
     startRTTMonitoring();
-
-    startServerRecording(username);
 
   } catch (err) {
     $('btn-join-call').disabled = false;
@@ -2253,8 +2254,14 @@ function updateConnQuality(rtt) {
   }
 }
 
-btnStart.addEventListener('click', startRecording);
-btnStop.addEventListener('click', stopRecording);
+btnStart.addEventListener('click', () => {
+  startRecording();
+  startServerRecording(getUsername());
+});
+btnStop.addEventListener('click', () => {
+  stopRecording();
+  stopServerRecording();
+});
 window.addEventListener('beforeunload', (e) => {
   if (state.isRecording) {
     e.preventDefault();
