@@ -769,14 +769,29 @@ const peerUsernames = {}; // peerId -> username
 // ===== WebRTC / ビデオ通話 =====
 // =========================================================
 
-const STUN = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-  ]
-};
+// ICE設定（接続時に毎回取得して確実に反映する）
+let _iceConfig = null;
+async function getIceConfig() {
+  if (_iceConfig) return _iceConfig;
+  try {
+    const r = await fetch('/api/turn-credentials');
+    const data = await r.json();
+    if (data.iceServers && data.iceServers.length > 0) {
+      _iceConfig = { iceServers: data.iceServers };
+      console.log('[TURN] クレデンシャル取得OK');
+      return _iceConfig;
+    }
+  } catch(e) { console.warn('[TURN] 取得失敗、STUNにフォールバック', e); }
+  _iceConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+    ]
+  };
+  return _iceConfig;
+}
+// 後方互換のためSTUNも定義
+const STUN = null; // createPeer内でgetIceConfig()を使用する
 
 const ws = {
   socket: null,
@@ -787,6 +802,12 @@ const ws = {
   audioMuted: false,
   videoMuted: false,
 };
+
+function shouldInitiatePeer(peerId) {
+  const myId = ws.socket?.id;
+  if (!myId || !peerId) return false;
+  return myId > peerId;
+}
 
 // ===== Socket.io 初期化 =====
 function initSocket() {
@@ -848,15 +869,20 @@ function initSocket() {
       const peerId   = typeof peerInfo === 'string' ? peerInfo : peerInfo.peerId;
       const username = typeof peerInfo === 'string' ? '' : (peerInfo.username || '');
       if (peerId && username) peerUsernames[peerId] = username;
-      await createPeer(peerId, true);
+      if (peerId && !ws.peers[peerId]) {
+        await createPeer(peerId, shouldInitiatePeer(peerId));
+      }
     }
     updateParticipants();
   });
 
-  ws.socket.on('peer-joined', (data) => {
+  ws.socket.on('peer-joined', async (data) => {
     const peerId   = typeof data === 'string' ? data : data.peerId;
     const username = typeof data === 'string' ? '' : (data.username || '');
     if (peerId && username) peerUsernames[peerId] = username;
+    if (peerId && !ws.peers[peerId]) {
+      await createPeer(peerId, shouldInitiatePeer(peerId));
+    }
     updateParticipants();
   });
 
@@ -969,7 +995,8 @@ function initSocket() {
 
 // ===== PeerConnection 作成 =====
 async function createPeer(peerId, isInitiator) {
-  const pc = new RTCPeerConnection(STUN);
+  const iceConfig = await getIceConfig();
+  const pc = new RTCPeerConnection(iceConfig);
   ws.peers[peerId] = pc;
 
   if (ws.localStream) {
@@ -978,11 +1005,11 @@ async function createPeer(peerId, isInitiator) {
       const params = sender.getParameters();
       if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
       if (track.kind === 'video') {
-        params.encodings[0].maxBitrate = 40_000;  // 40kbps（低速回線優先・通話品質は二次）
-        params.encodings[0].maxFramerate = 3;      // 3fps（帯域節約）
-        params.encodings[0].scaleResolutionDownBy = 4; // 解像度を1/4に（最大省帯域）
+        params.encodings[0].maxBitrate = 500_000;  // 500kbps（3人通話で十分な品質）
+        params.encodings[0].maxFramerate = 24;
+        params.encodings[0].scaleResolutionDownBy = 1;
       } else if (track.kind === 'audio') {
-        params.encodings[0].maxBitrate = 20_000;  // 20kbps（音声通話として十分・録音は別途保存）
+        params.encodings[0].maxBitrate = 64_000;   // 64kbps（音声品質優先）
       }
       sender.setParameters(params).catch(() => {});
     });
@@ -1109,9 +1136,20 @@ async function joinCall() {
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
-        video: { width: { ideal: 160 }, height: { ideal: 120 }, frameRate: { ideal: 3, max: 5 }, facingMode: 'user' }
-      }); // 最小解像度・最低フレームレート（録音安定性最優先・通話映像は補助）
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1,
+        },
+        video: {
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 360, max: 720 },
+          frameRate: { ideal: 24, max: 30 },
+          facingMode: 'user'
+        }
+      });
     } catch {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
