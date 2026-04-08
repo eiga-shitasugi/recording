@@ -1016,6 +1016,7 @@ async function createPeer(peerId, isInitiator) {
   }
 
   pc.ontrack = (event) => {
+    console.log(`[WebRTC] ${peerId} ontrack kind=${event.track?.kind || '?'} streams=${event.streams?.length || 0}`);
     addRemoteVideo(peerId, event.streams[0]);
     updateParticipants();
   };
@@ -1026,23 +1027,22 @@ async function createPeer(peerId, isInitiator) {
 
   pc.onconnectionstatechange = () => {
     console.log(`[WebRTC] ${peerId} connectionState → ${pc.connectionState}`);
-    if (pc.connectionState === 'failed') {
-      console.warn(`[WebRTC] ${peerId} 接続失敗 → ICE再起動`);
+    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      console.warn(`[WebRTC] ${peerId} 接続不安定 → ICE再起動を試行`);
       try { pc.restartIce(); } catch(e) {}
     }
   };
 
   pc.oniceconnectionstatechange = () => {
     console.log(`[WebRTC] ${peerId} iceConnectionState → ${pc.iceConnectionState}`);
-    if (pc.iceConnectionState === 'disconnected') {
-      // ping 1580ms環境では2秒以内に一時的disconnectedが多発し再起動ループになる
-      // 8秒待ちに設定（RTT×3 + バッファ）
+    if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+      // いったん短めに再試行し、その後も継続していたら再度ICEを起動
       setTimeout(() => {
         if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-          console.warn(`[WebRTC] ${peerId} ICE disconnected継続 → 再起動`);
+          console.warn(`[WebRTC] ${peerId} ICE不安定継続 → 再起動`);
           try { pc.restartIce(); } catch(e) {}
         }
-      }, 8000);
+      }, 3000);
     }
   };
 
@@ -1069,7 +1069,13 @@ function addRemoteVideo(peerId, stream) {
 
   const video = document.createElement('video');
   video.id = `video-${peerId}`;
-  video.autoplay = true; video.playsinline = true; video.srcObject = stream;
+  video.autoplay = true;
+  video.playsInline = true;
+  video.srcObject = stream;
+  video.addEventListener('loadedmetadata', () => {
+    video.play().catch(err => console.warn(`[WebRTC] ${peerId} remote video play失敗`, err));
+  });
+  video.muted = false;
 
   const label = document.createElement('div');
   label.className = 'video-label';
