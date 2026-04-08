@@ -709,6 +709,11 @@
 <!-- Socket.io クライアント -->
 <script src="/socket.io/socket.io.js"></script>
 
+<script type="module">
+import { MediaCore } from '/js/core/media-core.js';
+window.__mediaCore = new MediaCore();
+</script>
+
 <script>
 // ===== DOM ヘルパー =====
 const $ = id => document.getElementById(id);
@@ -1174,6 +1179,15 @@ async function joinCall() {
 
     const localVid = $('local-video');
     localVid.srcObject = stream;
+    try {
+      if (window.__mediaCore) {
+        await window.__mediaCore.attachLocal(localVid);
+      } else {
+        await localVid.play();
+      }
+    } catch (e) {
+      console.warn('[WebRTC] local preview play失敗', e);
+    }
 
     if (!stream.getVideoTracks().length) {
       $('local-wrapper').innerHTML = `
