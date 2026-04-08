@@ -63,6 +63,29 @@ const upload = multer({
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+// ===== TURN credentials エンドポイント =====
+const crypto = require('crypto');
+app.get('/api/turn-credentials', (req, res) => {
+  const secret = process.env.TURN_SECRET;
+  if (!secret) return res.json({ iceServers: [] });
+  const ttl = 86400; // 24時間
+  const username = `${Math.floor(Date.now() / 1000) + ttl}:surecast`;
+  const hmac = crypto.createHmac('sha1', secret).update(username).digest('base64');
+  res.json({
+    iceServers: [
+      { urls: 'stun:162.43.22.84:3478' },
+      {
+        urls: [
+          'turn:162.43.22.84:3478?transport=udp',
+          'turn:162.43.22.84:3478?transport=tcp',
+        ],
+        username,
+        credential: hmac,
+      }
+    ]
+  });
+});
+
 // ===== FFmpeg変換ユーティリティ =====
 function convertToFlac(inputPath, outputPath) {
   return new Promise((resolve, reject) => {

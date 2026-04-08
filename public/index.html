@@ -1005,11 +1005,11 @@ async function createPeer(peerId, isInitiator) {
       const params = sender.getParameters();
       if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
       if (track.kind === 'video') {
-        params.encodings[0].maxBitrate = 500_000;  // 500kbps（3人通話で十分な品質）
-        params.encodings[0].maxFramerate = 24;
-        params.encodings[0].scaleResolutionDownBy = 1;
+        params.encodings[0].maxBitrate = 120_000;  // 安定性優先で大幅に圧縮
+        params.encodings[0].maxFramerate = 8;
+        params.encodings[0].scaleResolutionDownBy = 2;
       } else if (track.kind === 'audio') {
-        params.encodings[0].maxBitrate = 64_000;   // 64kbps（音声品質優先）
+        params.encodings[0].maxBitrate = 24_000;   // 通話音質より接続安定性を優先
       }
       sender.setParameters(params).catch(() => {});
     });
@@ -1144,9 +1144,9 @@ async function joinCall() {
           channelCount: 1,
         },
         video: {
-          width: { ideal: 640, max: 1280 },
-          height: { ideal: 360, max: 720 },
-          frameRate: { ideal: 24, max: 30 },
+          width: { ideal: 320, max: 640 },
+          height: { ideal: 180, max: 360 },
+          frameRate: { ideal: 8, max: 10 },
           facingMode: 'user'
         }
       });
