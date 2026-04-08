@@ -711,7 +711,9 @@
 
 <script type="module">
 import { MediaCore } from '/js/core/media-core.js';
+import { CallCore } from '/js/core/call-core.js';
 window.__mediaCore = new MediaCore();
+window.__CallCoreClass = CallCore;
 </script>
 
 <script>
@@ -806,12 +808,26 @@ const ws = {
   inCall: false,
   audioMuted: false,
   videoMuted: false,
+  callCore: null,
 };
 
 function shouldInitiatePeer(peerId) {
   const myId = ws.socket?.id;
   if (!myId || !peerId) return false;
   return myId > peerId;
+}
+
+function ensureCallCore() {
+  if (ws.callCore || !window.__CallCoreClass) return ws.callCore;
+  ws.callCore = new window.__CallCoreClass({
+    io,
+    getIceConfig,
+    getLocalStream: async () => ws.localStream || window.__mediaCore?.getLocalStream(),
+    onRemoteTrack: (peerId, stream) => addRemoteVideo(peerId, stream),
+    onPeerStateChange: (peerId, conn, ice) => console.log(`[CallCore] ${peerId} conn=${conn} ice=${ice}`),
+    onParticipantsChange: (count) => { $('call-participants').textContent = `参加者：${count}人`; },
+  });
+  return ws.callCore;
 }
 
 // ===== Socket.io 初期化 =====
