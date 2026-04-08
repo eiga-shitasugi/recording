@@ -1076,11 +1076,18 @@ function addRemoteVideo(peerId, stream) {
   video.id = `video-${peerId}`;
   video.autoplay = true;
   video.playsInline = true;
-  video.srcObject = stream;
-  video.addEventListener('loadedmetadata', () => {
-    video.play().catch(err => console.warn(`[WebRTC] ${peerId} remote video play失敗`, err));
-  });
   video.muted = false;
+  if (window.__mediaCore) {
+    window.__mediaCore.attachRemote(video, stream).catch(err => {
+      console.warn(`[WebRTC] ${peerId} remote video play失敗`, err);
+      video.srcObject = stream;
+    });
+  } else {
+    video.srcObject = stream;
+    video.addEventListener('loadedmetadata', () => {
+      video.play().catch(err => console.warn(`[WebRTC] ${peerId} remote video play失敗`, err));
+    });
+  }
 
   const label = document.createElement('div');
   label.className = 'video-label';
