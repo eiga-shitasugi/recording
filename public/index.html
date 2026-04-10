@@ -907,6 +907,7 @@ function initSocket() {
   });
 
   ws.socket.on('room-peers', async (peers) => {
+    if (ws.callCore) return;
     for (const peerInfo of peers) {
       const peerId   = typeof peerInfo === 'string' ? peerInfo : peerInfo.peerId;
       const username = typeof peerInfo === 'string' ? '' : (peerInfo.username || '');
@@ -919,6 +920,7 @@ function initSocket() {
   });
 
   ws.socket.on('peer-joined', async (data) => {
+    if (ws.callCore) return;
     const peerId   = typeof data === 'string' ? data : data.peerId;
     const username = typeof data === 'string' ? '' : (data.username || '');
     if (peerId && username) peerUsernames[peerId] = username;
@@ -929,6 +931,7 @@ function initSocket() {
   });
 
   ws.socket.on('offer', async ({ from, offer }) => {
+    if (ws.callCore) return;
     let pc = getPeer(from);
     if (!pc) pc = await createPeer(from, false);
     try {
@@ -942,6 +945,7 @@ function initSocket() {
   });
 
   ws.socket.on('answer', async ({ from, answer }) => {
+    if (ws.callCore) return;
     const pc = getPeer(from);
     if (pc) {
       try {
@@ -953,6 +957,7 @@ function initSocket() {
   });
 
   ws.socket.on('ice-candidate', async ({ from, candidate }) => {
+    if (ws.callCore) return;
     const pc = getPeer(from);
     if (pc && candidate) {
       try {
@@ -962,6 +967,7 @@ function initSocket() {
   });
 
   ws.socket.on('peer-left', (peerId) => {
+    if (ws.callCore) return;
     delete peerUsernames[peerId];
     removePeer(peerId);
     typingPeers.delete(peerId);
