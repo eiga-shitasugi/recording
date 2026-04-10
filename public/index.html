@@ -1196,6 +1196,7 @@ async function joinCall() {
     ws.localStream = stream;
     ws.roomId = roomId;
     ws.inCall = true;
+    ensureCallCore();
 
     const localLabel = $('local-video-label');
     if (localLabel) localLabel.textContent = username + '（自分）';
