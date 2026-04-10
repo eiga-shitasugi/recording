@@ -811,6 +811,27 @@ const ws = {
   callCore: null,
 };
 
+function hasPeer(peerId) {
+  if (ws.callCore && ws.callCore.peers) return ws.callCore.peers.has(peerId);
+  return !!hasPeer(peerId);
+}
+function getPeer(peerId) {
+  if (ws.callCore && ws.callCore.peers) return ws.callCore.peers.get(peerId);
+  return ws.peers[peerId];
+}
+function setPeer(peerId, pc) {
+  if (ws.callCore && ws.callCore.peers) ws.callCore.peers.set(peerId, pc);
+  setPeer(peerId, pc);
+}
+function deletePeer(peerId) {
+  if (ws.callCore && ws.callCore.peers) ws.callCore.peers.delete(peerId);
+  delete ws.peers[peerId];
+}
+function peerCount() {
+  if (ws.callCore && ws.callCore.peers) return ws.callCore.peers.size;
+  return Object.keys(ws.peers).length;
+}
+
 function shouldInitiatePeer(peerId) {
   const myId = ws.socket?.id;
   if (!myId || !peerId) return false;
@@ -890,7 +911,7 @@ function initSocket() {
       const peerId   = typeof peerInfo === 'string' ? peerInfo : peerInfo.peerId;
       const username = typeof peerInfo === 'string' ? '' : (peerInfo.username || '');
       if (peerId && username) peerUsernames[peerId] = username;
-      if (peerId && !ws.peers[peerId]) {
+      if (peerId && !hasPeer(peerId)) {
         await createPeer(peerId, shouldInitiatePeer(peerId));
       }
     }
@@ -901,14 +922,14 @@ function initSocket() {
     const peerId   = typeof data === 'string' ? data : data.peerId;
     const username = typeof data === 'string' ? '' : (data.username || '');
     if (peerId && username) peerUsernames[peerId] = username;
-    if (peerId && !ws.peers[peerId]) {
+    if (peerId && !hasPeer(peerId)) {
       await createPeer(peerId, shouldInitiatePeer(peerId));
     }
     updateParticipants();
   });
 
   ws.socket.on('offer', async ({ from, offer }) => {
-    let pc = ws.peers[from];
+    let pc = getPeer(from);
     if (!pc) pc = await createPeer(from, false);
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -921,7 +942,7 @@ function initSocket() {
   });
 
   ws.socket.on('answer', async ({ from, answer }) => {
-    const pc = ws.peers[from];
+    const pc = getPeer(from);
     if (pc) {
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
@@ -932,7 +953,7 @@ function initSocket() {
   });
 
   ws.socket.on('ice-candidate', async ({ from, candidate }) => {
-    const pc = ws.peers[from];
+    const pc = getPeer(from);
     if (pc && candidate) {
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -1018,7 +1039,7 @@ function initSocket() {
 async function createPeer(peerId, isInitiator) {
   const iceConfig = await getIceConfig();
   const pc = new RTCPeerConnection(iceConfig);
-  ws.peers[peerId] = pc;
+  setPeer(peerId, pc);
 
   if (ws.localStream) {
     ws.localStream.getTracks().forEach(track => {
@@ -1133,15 +1154,15 @@ function updateVideoGridLayout() {
 }
 
 function removePeer(peerId) {
-  const pc = ws.peers[peerId];
-  if (pc) { pc.close(); delete ws.peers[peerId]; }
+  const pc = getPeer(peerId);
+  if (pc) { pc.close(); deletePeer(peerId); }
   const wrapper = $(`wrapper-${peerId}`);
   if (wrapper) wrapper.remove();
   updateVideoGridLayout();
 }
 
 function updateParticipants() {
-  const count = Object.keys(ws.peers).length + 1;
+  const count = peerCount() + 1;
   $('call-participants').textContent = `参加者：${count}人`;
   const userCount = $('script-user-count');
   if (ws.inCall) {
