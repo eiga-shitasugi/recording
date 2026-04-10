@@ -1232,7 +1232,12 @@ async function joinCall() {
     preJoinEpisodes = JSON.parse(JSON.stringify(episodeState.episodes));
     isFirstJoin = true; // 初回参加フラグを立てる
 
-    ws.socket.emit('join-room', { roomId, username });
+    if (ws.callCore) {
+      ws.socket = ws.callCore.connectSocket();
+      await ws.callCore.joinRoom({ roomId, username });
+    } else {
+      ws.socket.emit('join-room', { roomId, username });
+    }
 
     const url = new URL(window.location.href);
     url.searchParams.set('room', roomId);
