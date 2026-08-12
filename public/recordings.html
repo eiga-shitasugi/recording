@@ -105,6 +105,11 @@
       border-radius: var(--radius);
       padding: 16px 18px;
     }
+    .file-card.failure {
+      border-color: rgba(239,68,68,0.65);
+      background: rgba(69,26,26,0.55);
+    }
+    .failure-message { color: #fecaca; font-size: 0.88rem; font-weight: 700; }
     .file-row {
       display: flex;
       align-items: center;
@@ -139,7 +144,20 @@
     .badge-srv  { background: rgba(217,119,6,0.15); color: var(--accent); border: 1px solid rgba(217,119,6,0.3); }
     .badge-local{ background: rgba(96,165,250,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
     .badge-webm { background: rgba(160,160,160,0.15); color: var(--text-dim); border: 1px solid rgba(160,160,160,0.3); }
+    .badge-mix { background: rgba(217,119,6,0.15); color: #fbbf24; border: 1px solid rgba(217,119,6,0.4); }
+    .badge-master { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
+    .badge-sync-warning { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.45); }
     .flac-note  { font-size: 0.72rem; color: var(--text-dim); margin-top: 6px; font-style: italic; }
+    .noise-note {
+      margin-top: 7px;
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.74rem;
+      line-height: 1.45;
+    }
+    .noise-note.applied { color: #86efac; border-color: rgba(34,197,94,0.45); background: rgba(34,197,94,0.08); }
+    .noise-note.skipped { color: #fbbf24; border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.08); }
     .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .btn-dl {
       padding: 7px 16px;
@@ -159,6 +177,21 @@
       white-space: nowrap;
     }
     .btn-dl:hover { background: var(--accent-hover); }
+    .btn-process {
+      padding: 7px 14px;
+      background: var(--surface2);
+      color: #c084fc;
+      border: 1px solid rgba(168,85,247,0.5);
+      border-radius: 7px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-process:hover:not(:disabled) { background: rgba(168,85,247,0.15); }
+    .btn-process:disabled { opacity: 0.6; cursor: default; }
 
     audio {
       width: 100%;
@@ -247,6 +280,32 @@ function formatDate(str) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
+function renderNoiseNote(file) {
+  const noise = file.processing && file.processing.noise;
+  if (!noise) return '';
+  if (noise.method === 'profile' && noise.applied) {
+    const start = Number(noise.profileStartSec).toFixed(1);
+    const end = Number(noise.profileEndSec).toFixed(1);
+    return `<div class="noise-note applied">ノイズ除去済み（自動プロファイル ${start}〜${end}秒 ／ nr=${noise.reductionDb} dB ／ 全体平均より ${noise.quieterByDb} dB静か）</div>`;
+  }
+  if (noise.method === 'arnndn' && noise.applied) {
+    return `<div class="noise-note applied">AIノイズ除去済み（arnndn ／ ${escapeHtml(noise.reason || '自動プロファイルから切り替えました')}）</div>`;
+  }
+  if (noise.applied) {
+    const quietness = noise.profileWasSilent
+      ? '冒頭は無音'
+      : `冒頭は全体平均より ${noise.quieterByDb} dB静か`;
+    return `<div class="noise-note applied">ノイズ除去済み（nr=${noise.reductionDb} dB ／ ${quietness}）</div>`;
+  }
+  return `<div class="noise-note skipped">ノイズ除去をスキップしました：${escapeHtml(noise.reason || 'ノイズプロファイルを安全に取得できませんでした')}。ハイパスとラウドネス調整は適用済みです。</div>`;
+}
+
 async function loadRecordings() {
   const listEl = document.getElementById('file-list');
   const totalEl = document.getElementById('total-info');
@@ -268,19 +327,44 @@ async function loadRecordings() {
       return;
     }
 
+    const failureCount = files.filter(f => f.failure).length;
+    const audioCount = files.length - failureCount;
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-    totalEl.textContent = `${files.length} ファイル ／ 合計 ${formatSize(totalSize)}`;
+    totalEl.textContent = `${audioCount} ファイル ／ 取得失敗 ${failureCount} 件 ／ 合計 ${formatSize(totalSize)}`;
     totalEl.style.display = 'block';
 
     listEl.innerHTML = '';
     files.forEach(f => {
+      if (f.failure) {
+        const username = escapeHtml(f.failure.username || '不明');
+        const card = document.createElement('div');
+        card.className = 'file-card failure';
+        card.innerHTML = `
+          <div class="file-row">
+            <div class="file-icon">⚠</div>
+            <div class="file-info">
+              <div class="failure-message">${username}さんの録音は取得できませんでした</div>
+              <div class="file-meta">${formatDate(f.mtime)} ／ マイクと録音状態を確認してください</div>
+            </div>
+          </div>
+        `;
+        listEl.appendChild(card);
+        return;
+      }
       const isFlac = /\.flac$/i.test(f.name);
+      const isMaster = /-master\.flac$/i.test(f.name);
       const isLocal = /-local\.flac$/i.test(f.name);
-      const isSrv   = /\.flac$/i.test(f.name) && !isLocal;
+      const isMix = /^MIX-.*\.mp3$/i.test(f.name);
 
       let badge = '';
       let icon = '🎵';
-      if (isFlac) {
+      if (isMix) {
+        icon = '🎧';
+        badge = '<span class="file-badge badge-mix">確認用ミックス</span>';
+      } else if (isMaster) {
+        icon = '✨';
+        badge = '<span class="file-badge badge-master">整音済み</span>';
+      } else if (isFlac) {
         icon = '🎙️';
         if (isLocal) {
           badge = '<span class="file-badge badge-local">ローカル録音</span>';
@@ -289,6 +373,9 @@ async function loadRecordings() {
         }
       } else {
         badge = '<span class="file-badge badge-webm">WebM</span>';
+      }
+      if (f.sync && f.sync.clockSyncOk === false) {
+        badge += '<span class="file-badge badge-sync-warning">⚠ 位置合わせ未保証</span>';
       }
 
       const card = document.createElement('div');
@@ -299,6 +386,7 @@ async function loadRecordings() {
           <div class="file-info">
             <div class="file-name">${f.name}${badge}</div>
             <div class="file-meta">${formatDate(f.mtime)} ／ ${formatSize(f.size)}</div>
+            ${isMaster ? renderNoiseNote(f) : ''}
             ${isFlac ? '<div class="flac-note">FLAC形式 — ダウンロードしてご使用ください（ブラウザ再生非対応の場合があります）</div>' : ''}
           </div>
           <div class="file-actions">
@@ -309,6 +397,14 @@ async function loadRecordings() {
         </div>
         ${!isFlac ? `<audio controls src="/recordings/${encodeURIComponent(f.name)}"></audio>` : ''}
       `;
+      if (!isMaster && !isMix) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-process';
+        btn.textContent = '✨ 整音';
+        btn.title = 'ハイパス・ノイズ除去・ラウドネス正規化(-16 LUFS)を適用した整音済みFLACを作成します';
+        btn.addEventListener('click', () => processFile(f.name, btn));
+        card.querySelector('.file-actions').prepend(btn);
+      }
       listEl.appendChild(card);
     });
   } catch (err) {
@@ -318,6 +414,34 @@ async function loadRecordings() {
         <br>サーバーが起動しているか確認してください。
       </div>
     `;
+  }
+}
+
+async function processFile(name, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ 整音中…';
+  try {
+    const res = await fetch('/process/' + encodeURIComponent(name), { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+    const poll = setInterval(async () => {
+      try {
+        const st = await (await fetch('/process-status/' + encodeURIComponent(name))).json();
+        if (st.status === 'done') {
+          clearInterval(poll);
+          loadRecordings();
+        } else if (st.status === 'error') {
+          clearInterval(poll);
+          btn.disabled = false;
+          btn.textContent = '✨ 整音';
+          alert('整音に失敗しました：' + (st.error || '不明なエラー'));
+        }
+      } catch {}
+    }, 3000);
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✨ 整音';
+    alert('整音を開始できませんでした：' + err.message);
   }
 }
 

@@ -8,3 +8,5 @@ services:
       - .env
     volumes:
       - ./recordings:/app/recordings
+      - ./uploads:/app/uploads
+      - ./episodes:/app/episodes

@@ -3,8 +3,15 @@ export class MediaCore {
     this.localStream = null;
   }
 
+  setLocalStream(stream) {
+    this.localStream = stream;
+    return stream;
+  }
+
   async getLocalStream() {
-    if (this.localStream) return this.localStream;
+    if (this.localStream && this.localStream.getTracks().some(track => track.readyState === 'live')) {
+      return this.localStream;
+    }
     this.localStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
@@ -23,15 +30,25 @@ export class MediaCore {
     return this.localStream;
   }
 
-  async attachLocal(videoEl) {
-    const stream = await this.getLocalStream();
-    videoEl.srcObject = stream;
+  async attachLocal(videoEl, stream = null) {
+    const localStream = stream || await this.getLocalStream();
+    this.setLocalStream(localStream);
+    if (videoEl.srcObject !== localStream) videoEl.srcObject = localStream;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
     try { await videoEl.play(); } catch {}
-    return stream;
+    return localStream;
   }
 
   async attachRemote(videoEl, stream) {
-    videoEl.srcObject = stream;
+    if (videoEl.srcObject !== stream) videoEl.srcObject = stream;
+    videoEl.playsInline = true;
     try { await videoEl.play(); } catch {}
+  }
+
+  stopLocalStream() {
+    if (!this.localStream) return;
+    this.localStream.getTracks().forEach(track => track.stop());
+    this.localStream = null;
   }
 }

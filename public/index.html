@@ -87,6 +87,62 @@
       height: 20px;
     }
     .status-mic-select:focus { border-color: var(--accent); }
+    .speaker-mode-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text);
+      cursor: pointer;
+      white-space: normal;
+    }
+    .speaker-mode-toggle input { accent-color: var(--accent); }
+    .speaker-mode-help {
+      color: var(--text-dim);
+      font-size: 0.70rem;
+      white-space: normal;
+    }
+    #recording-health-bar {
+      background: #451a1a;
+      border-bottom: 1px solid var(--red);
+      color: #fee2e2;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      flex-wrap: wrap;
+    }
+    #recording-health-bar[hidden] { display: none; }
+    #recording-health-messages { display: grid; gap: 4px; }
+    #btn-reacquire-mic {
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      background: #fef2f2;
+      color: #991b1b;
+      padding: 7px 11px;
+      font: inherit;
+      cursor: pointer;
+    }
+    #btn-reacquire-mic:disabled { opacity: 0.55; cursor: wait; }
+    #preflight-results {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #111;
+      color: var(--text);
+      font-size: 0.80rem;
+    }
+    #preflight-results[hidden] { display: none; }
+    .preflight-summary { font-weight: 800; margin-bottom: 8px; }
+    .preflight-summary.ok { color: var(--green); }
+    .preflight-summary.warn { color: var(--yellow); }
+    .preflight-table-wrap { overflow-x: auto; }
+    .preflight-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    .preflight-table th, .preflight-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+    .preflight-table th { color: var(--text-dim); font-size: 0.72rem; }
+    .preflight-fix { color: var(--yellow); }
+    .preflight-disk { margin-top: 8px; color: var(--text-dim); }
     /* ステータスバー内のdB表示（非表示） */
     .status-db {
       display: none;
@@ -114,16 +170,19 @@
       flex: 1;
       padding: 16px;
       display: grid;
-      grid-template-columns: 2fr 1fr;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
       gap: 16px;
-      align-items: start;
-      max-width: 1400px;
+      align-items: stretch;   /* 縦方向も使い切る（従来は start で下が余っていた） */
+      max-width: 1800px;
       width: 100%;
       margin: 0 auto;
+      min-height: 0;          /* grid内のスクロール領域を正しく機能させる */
     }
 
-    #left-col { display: flex; flex-direction: column; gap: 8px; }
-    #right-col { position: sticky; top: 16px; }
+    #left-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+    #right-col { display: flex; flex-direction: column; min-height: 0; }
+    /* 台本カードを右カラムいっぱいに広げ、本文欄が余白を吸収する */
+    #right-col > .card { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
     /* ===== カード ===== */
     .card {
@@ -209,27 +268,23 @@
     /* ===== ビデオグリッド ===== */
     #video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      grid-auto-rows: 220px;
+      grid-template-columns: repeat(2, 1fr); /* JSが人数に応じて上書き */
       gap: 8px;
       margin-bottom: 10px;
-      max-height: 320px;
-      overflow: hidden;
+      align-content: start;
     }
-    /* 1人参加時：Discord風の横長表示 */
-    #video-grid:has(.video-wrapper:only-child) {
-      grid-template-columns: 1fr;
-      grid-auto-rows: auto;
-      max-width: 560px;
-      margin: 0 auto;
-    }
-    #video-grid .video-wrapper:only-child {
+    /* 各ビデオタイルは16:9で列幅いっぱいに広げる */
+    #video-grid .video-wrapper {
       width: 100%;
       aspect-ratio: 16 / 9;
-      max-height: 320px;
+      max-height: 72vh;
     }
-    #video-grid .video-wrapper:only-child video {
-      object-fit: cover;
+    #video-grid .video-wrapper video { object-fit: cover; }
+    /* 1人参加時：中央寄せの大きめ横長表示 */
+    #video-grid.solo {
+      grid-template-columns: 1fr;
+      max-width: 640px;
+      margin: 0 auto;
     }
     .video-wrapper {
       position: relative; background: #000;
@@ -424,6 +479,113 @@
     #toast.error   { border-color: var(--red);   color: var(--red);   }
     #toast.info    { border-color: var(--accent); color: var(--accent); }
 
+    /* ===== 一斉録音カウントダウン ===== */
+    #recording-countdown {
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.92);
+      color: #fff;
+      text-align: center;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+    }
+    #recording-countdown.visible {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transition: opacity 0.18s ease;
+    }
+    .film-countdown-frame {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      width: min(100%, 420px);
+    }
+    .film-countdown-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #f59e0b;
+    }
+    .film-countdown-dial {
+      position: relative;
+      width: min(58vw, 230px);
+      aspect-ratio: 1;
+      overflow: hidden;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #111;
+    }
+    .film-countdown-dial::before,
+    .film-countdown-dial::after {
+      content: '';
+      position: absolute;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.35);
+    }
+    .film-countdown-dial::before { width: 100%; height: 1px; }
+    .film-countdown-dial::after { width: 1px; height: 100%; }
+    .film-countdown-wipe {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.16);
+      animation: film-circle-wipe 1s linear forwards;
+    }
+    .film-countdown-sweep {
+      position: absolute;
+      z-index: 3;
+      left: calc(50% - 1px);
+      bottom: 50%;
+      width: 2px;
+      height: 46%;
+      background: #fff;
+      transform-origin: 50% 100%;
+      animation: film-clock-sweep 1s linear forwards;
+    }
+    #recording-countdown-value {
+      position: relative;
+      z-index: 4;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 7rem;
+      line-height: 1;
+      font-weight: 700;
+    }
+    .film-countdown-note {
+      min-height: 2.8em;
+      font-size: 1rem;
+      line-height: 1.6;
+      font-weight: 700;
+    }
+    #recording-countdown.started .film-countdown-dial {
+      border-color: #22c55e;
+      background: #122d1b;
+    }
+    #recording-countdown.started #recording-countdown-value {
+      font-family: inherit;
+      font-size: 2.3rem;
+      color: #86efac;
+    }
+    #recording-countdown.started .film-countdown-note { color: #86efac; }
+    @keyframes film-circle-wipe {
+      from { clip-path: circle(72% at 50% 50%); }
+      to { clip-path: circle(0 at 50% 50%); }
+    }
+    @keyframes film-clock-sweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     /* ===== 台本エリア ===== */
     #episode-bar {
       display: flex;
@@ -480,7 +642,8 @@
 
     #script-textarea {
       width: 100%;
-      min-height: 380px;
+      flex: 1;
+      min-height: 220px;
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -507,6 +670,15 @@
 
     #script-user-count { font-size: 0.72rem; color: var(--teal); }
 
+    #username-hint {
+      margin-top: 5px;
+      font-size: 0.74rem;
+      color: var(--text-dim);
+      transition: color 0.15s;
+    }
+    #username-hint.required { color: var(--accent); font-weight: 700; }
+    #username-input.needs-input { border-color: var(--accent); }
+    #script-textarea.locked { opacity: 0.6; cursor: not-allowed; }
     #script-typing-indicator {
       min-height: 18px; margin-top: 6px;
       font-size: 0.76rem; color: var(--text-dim);
@@ -539,9 +711,16 @@
     }
 
     /* ===== レスポンシブ ===== */
-    @media (max-width: 900px) {
-      main { grid-template-columns: 1fr; }
-      #right-col { position: static; }
+    /* タブレット・狭いPC: 1カラムに切り替え、縦積みにする */
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+        align-items: start;      /* 縦積みでは引き伸ばさない */
+        max-width: 900px;
+      }
+      #right-col { min-height: 0; }
+      #right-col > .card { flex: none; }
+      #script-textarea { flex: none; min-height: 260px; }
     }
     @media (max-width: 768px) {
       header { padding: 10px 16px; }
@@ -552,8 +731,20 @@
       main { padding: 10px; gap: 10px; }
       .card { padding: 14px; }
       #video-grid { grid-template-columns: 1fr 1fr; }
-      #call-controls { gap: 6px; }
-      #call-controls .btn { padding: 8px 10px; font-size: 0.78rem; }
+      #call-controls { gap: 6px; flex-wrap: wrap; }
+      #call-controls .btn { padding: 10px 12px; font-size: 0.82rem; flex: 1 1 auto; min-width: 44%; }
+      #script-textarea { min-height: 200px; font-size: 16px; } /* 16px未満だとiOSで拡大される */
+      #status-bar { gap: 10px; font-size: 0.74rem; }
+      .status-mic-select { max-width: 110px; }
+      .speaker-mode-help { flex-basis: 100%; }
+      #recording-health-bar { padding: 10px 14px; }
+      #preflight-results { padding: 10px 14px; }
+      #invite-bar { flex-wrap: wrap; }
+      #btn-join-call, .btn-teal { padding: 14px; font-size: 1rem; } /* タップしやすく */
+    }
+    /* 縦に短い画面（ノートPC・横向きスマホ）では台本の最低高さを抑える */
+    @media (max-height: 700px) and (min-width: 1025px) {
+      #script-textarea { min-height: 160px; }
     }
   </style>
 </head>
@@ -580,15 +771,20 @@
     <select id="mic-select" class="status-mic-select">
       <option value="">（検出中...）</option>
     </select>
+    <label class="speaker-mode-toggle">
+      <input type="checkbox" id="speaker-mode">
+      スピーカーで参加する（エコー対策を有効にする）
+    </label>
+    <span class="speaker-mode-help">イヤホンを使う場合はオフのままにしてください（音質が良くなります）</span>
     <span class="status-db" id="vu-db-label">— dB</span>
   </div>
-  <div class="status-item">
+  <div class="status-item" id="status-item-local-rec" style="display:none">
     <div class="dot" id="dot-local-rec"></div>
     <span id="label-local-rec">ローカル録音：停止中</span>
   </div>
   <div class="status-item">
     <div class="dot" id="dot-srv-rec"></div>
-    <span id="label-srv-rec">サーバー録音：待機中</span>
+    <span id="label-srv-rec">録音：待機中</span>
   </div>
   <div class="status-item">
     <div class="dot" id="dot-call"></div>
@@ -600,6 +796,13 @@
   </div>
 </div>
 
+<div id="recording-health-bar" role="alert" aria-live="assertive" hidden>
+  <div id="recording-health-messages"></div>
+  <button type="button" id="btn-reacquire-mic">マイクを再取得</button>
+</div>
+
+<section id="preflight-results" aria-live="polite" hidden></section>
+
 <main>
 
   <!-- ===== 左カラム ===== -->
@@ -609,7 +812,8 @@
     <div class="card" id="call-setup">
       <div class="form-row">
         <label for="username-input">ユーザー名（録音ファイル名・参加者表示に使用）</label>
-        <input type="text" id="username-input" placeholder="例：Taro（未入力の場合はランダム）" maxlength="20">
+        <input type="text" id="username-input" placeholder="例：マリオン / marion" maxlength="20" required>
+        <div id="username-hint">録音ファイル名になります。誰の声か分かる名前を入力してください。</div>
       </div>
       <div class="form-row">
         <label>ルームID（英数字・自動生成）</label>
@@ -625,6 +829,7 @@
     <div class="card" id="call-active" style="display:none">
       <div id="call-meta">
         <span id="call-participants">参加者：自分のみ</span>
+        <span id="call-quality" style="color:var(--text-dim);font-size:0.78rem">通話品質：高画質（360p / 24fps）</span>
         <span id="call-room-label" style="color:var(--text-dim);font-size:0.78rem"></span>
       </div>
 
@@ -645,7 +850,8 @@
         <div id="call-controls">
           <button class="btn btn-ghost" id="btn-mute-audio">🎙️ ミュート</button>
           <button class="btn btn-ghost" id="btn-mute-video">📹 カメラOFF</button>
-          <button class="btn btn-record" id="btn-rec-all" title="参加中の全員のローカル録音を同時に開始します">⏺ 全員録音</button>
+          <button class="btn btn-ghost" id="btn-preflight" title="参加者全員のマイクと録音経路を確認します">🔍 収録前チェック</button>
+          <button class="btn btn-record" id="btn-rec-all" title="参加中の全員の録音を同時に開始します">⏺ 全員録音</button>
           <button class="btn btn-danger" id="btn-leave-call">📵 通話終了</button>
         </div>
       </div>
@@ -698,11 +904,24 @@
         id="script-textarea"
         placeholder="台本やメモをここに入力してください。&#10;&#10;例：&#10;【オープニング】&#10;「こんにちは、〇〇ポッドキャストへようこそ」&#10;&#10;【トピック1】&#10;・..."
       ></textarea>
+      <div id="script-lock-banner" style="display:none;margin-top:6px;font-size:0.78rem;color:var(--yellow);font-weight:600;"></div>
       <div id="script-typing-indicator"></div>
     </div>
   </div>
 
 </main>
+
+<div id="recording-countdown" role="status" aria-live="assertive" aria-hidden="true">
+  <div class="film-countdown-frame">
+    <div class="film-countdown-title" id="recording-countdown-title">録音準備中</div>
+    <div class="film-countdown-dial">
+      <div class="film-countdown-wipe"></div>
+      <div class="film-countdown-sweep"></div>
+      <div id="recording-countdown-value">3</div>
+    </div>
+    <div class="film-countdown-note" id="recording-countdown-note">3、2、1の合図で本編を始めてください。</div>
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -735,6 +954,152 @@ function showToast(msg, type = 'info') {
   toastTimer = setTimeout(() => { toast.className = ''; }, 3200);
 }
 
+const recordingHealthAlerts = new Map();
+
+function renderRecordingHealthAlerts() {
+  const bar = $('recording-health-bar');
+  const messages = $('recording-health-messages');
+  const recoverButton = $('btn-reacquire-mic');
+  if (!bar || !messages || !recoverButton) return;
+
+  messages.replaceChildren();
+  let hasOwnRecoverableAlert = false;
+  for (const alert of recordingHealthAlerts.values()) {
+    const row = document.createElement('div');
+    const isOwn = alert.username === getUserName();
+    if (alert.reason === 'clock-sync') {
+      row.textContent = alert.message || '⚠ サーバーとの時刻同期に失敗しました。録音は続行しますが、自動位置合わせは保証されません。';
+    } else if (alert.reason === 'disk-low') {
+      row.textContent = `⚠ サーバーの${alert.message || '空き容量が不足しています'}。録音は続行します。`;
+    } else if (alert.reason === 'write-error') {
+      row.textContent = `⚠ ${alert.message || `${alert.username}さんのサーバー録音を書き込めませんでした。`}`;
+    } else if (alert.reason === 'discarded') {
+      row.textContent = `⚠ ${alert.username}さんの録音は取得できませんでした。`;
+    } else if (isOwn) {
+      row.textContent = 'あなたの録音が記録されていません。マイクを選び直すか、ページを再読み込みしてください。';
+      hasOwnRecoverableAlert = true;
+    } else {
+      row.textContent = `⚠ ${alert.username} さんの録音データが届いていません。マイクを確認してください。`;
+    }
+    messages.appendChild(row);
+  }
+
+  bar.hidden = recordingHealthAlerts.size === 0;
+  recoverButton.style.display = hasOwnRecoverableAlert ? '' : 'none';
+}
+
+function setRecordingHealthAlert({ username, reason = 'no-audio', source = 'server', message = null, active = true }) {
+  const safeName = String(username || 'user');
+  const key = `${source}:${safeName}:${reason}`;
+  if (active) recordingHealthAlerts.set(key, { username: safeName, reason, source, message });
+  else recordingHealthAlerts.delete(key);
+  renderRecordingHealthAlerts();
+}
+
+function clearOwnRecoverableRecordingAlerts() {
+  const username = getUserName();
+  for (const [key, alert] of recordingHealthAlerts) {
+    if (alert.username === username && ['no-audio', 'recovered'].includes(alert.reason)) recordingHealthAlerts.delete(key);
+  }
+  renderRecordingHealthAlerts();
+}
+
+$('btn-reacquire-mic').addEventListener('click', () => recoverMicrophoneFromWarning());
+
+let recordingCountdownTimer = null;
+let recordingCountdownHideTimer = null;
+let recordingCountdownLastValue = null;
+let recordingCountdownAudioContext = null;
+
+function playRecordingCountdownBeep(isStart = false) {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!recordingCountdownAudioContext) recordingCountdownAudioContext = new AudioContextClass();
+    const ctx = recordingCountdownAudioContext;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    oscillator.type = 'sine';
+    oscillator.frequency.value = isStart ? 1040 : 760;
+    gain.gain.setValueAtTime(0.015, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.05);
+  } catch {}
+}
+
+function restartRecordingCountdownAnimation() {
+  const dial = document.querySelector('.film-countdown-dial');
+  if (!dial) return;
+  dial.querySelectorAll('.film-countdown-wipe, .film-countdown-sweep').forEach((element) => {
+    element.style.animation = 'none';
+    void element.offsetWidth;
+    element.style.animation = '';
+  });
+}
+
+function hideRecordingCountdown() {
+  clearInterval(recordingCountdownTimer);
+  clearTimeout(recordingCountdownHideTimer);
+  recordingCountdownTimer = null;
+  recordingCountdownHideTimer = null;
+  recordingCountdownLastValue = null;
+  const overlay = $('recording-countdown');
+  if (!overlay) return;
+  overlay.classList.remove('visible', 'started');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function showRecordingCountdown(countdownEndEpoch, { lateJoin = false } = {}) {
+  const endEpoch = Number(countdownEndEpoch);
+  const overlay = $('recording-countdown');
+  const titleElement = $('recording-countdown-title');
+  const valueElement = $('recording-countdown-value');
+  const noteElement = $('recording-countdown-note');
+  if (!overlay || !titleElement || !valueElement || !noteElement || !Number.isFinite(endEpoch)) return;
+  if (endEpoch <= Date.now() + (ws.clockOffset || 0) - 500) return;
+
+  hideRecordingCountdown();
+  overlay.classList.add('visible');
+  overlay.setAttribute('aria-hidden', 'false');
+  titleElement.textContent = lateJoin ? '接続しました。録音を開始しています' : '録音準備中';
+  noteElement.textContent = lateJoin
+    ? '3、2、1の合図で会話に参加してください。'
+    : '3、2、1の合図で本編を始めてください。';
+
+  const render = () => {
+    const remainingMs = endEpoch - (Date.now() + (ws.clockOffset || 0));
+    if (remainingMs > 0) {
+      const value = Math.max(1, Math.ceil(remainingMs / 1000));
+      valueElement.textContent = String(value);
+      overlay.dataset.value = String(value);
+      if (value !== recordingCountdownLastValue) {
+        recordingCountdownLastValue = value;
+        restartRecordingCountdownAnimation();
+        playRecordingCountdownBeep(false);
+      }
+      return;
+    }
+
+    clearInterval(recordingCountdownTimer);
+    recordingCountdownTimer = null;
+    if (recordingCountdownLastValue !== 0) playRecordingCountdownBeep(true);
+    recordingCountdownLastValue = 0;
+    valueElement.textContent = 'スタート';
+    overlay.dataset.value = 'start';
+    noteElement.textContent = lateJoin ? '会話に参加してください' : '収録を始めてください';
+    overlay.classList.add('started');
+    recordingCountdownHideTimer = setTimeout(hideRecordingCountdown, 900);
+  };
+
+  render();
+  recordingCountdownTimer = setInterval(render, 50);
+}
+
 // ===== フォーマット =====
 function pad(n) { return String(n).padStart(2, '0'); }
 function formatDatetimeDisplay(d) {
@@ -756,8 +1121,9 @@ function generateRandomName() {
 }
 
 function getUserName() {
+  if (ws.inCall && ws.username) return ws.username;
   const inputVal = $('username-input') ? $('username-input').value.trim() : '';
-  return inputVal || localStorage.getItem(LS_USERNAME_KEY) || generateRandomName();
+  return inputVal;
 }
 
 function loadUsername() {
@@ -767,6 +1133,30 @@ function loadUsername() {
 
 function saveUsername(name) {
   if (name) localStorage.setItem(LS_USERNAME_KEY, name);
+}
+
+// 表示名が未入力のままでは参加できないようにする。
+// 録音ファイル名になるため、誰の声かを後から特定できるようにする目的。
+function updateUsernameRequirement({ highlight = false } = {}) {
+  const input = $('username-input');
+  const hint = $('username-hint');
+  const joinButton = $('btn-join-call');
+  if (!input || !joinButton) return false;
+
+  const filled = input.value.normalize('NFKC').trim().length > 0;
+  // 接続処理中（ボタンが「接続中...」）は触らない
+  if (!joinButton.textContent.includes('接続中')) {
+    joinButton.disabled = !filled;
+    joinButton.title = filled ? '' : '先に表示名を入力してください';
+  }
+  if (hint) {
+    hint.textContent = filled
+      ? '録音ファイル名になります。誰の声か分かる名前を入力してください。'
+      : '表示名を入力すると参加できます。';
+    hint.classList.toggle('required', !filled && highlight);
+  }
+  input.classList.toggle('needs-input', !filled && highlight);
+  return filled;
 }
 
 // ===== ピアのユーザー名管理 =====
@@ -805,15 +1195,18 @@ const ws = {
   peers: {},
   localStream: null,
   roomId: null,
+  username: null,
   inCall: false,
   audioMuted: false,
   videoMuted: false,
   callCore: null,
+  clockOffset: 0,
+  clockSyncState: { clockSyncOk: false, clockRttMs: null, clockOffsetMs: 0, syncedAt: null },
 };
 
 function hasPeer(peerId) {
   if (ws.callCore && ws.callCore.peers) return ws.callCore.peers.has(peerId);
-  return !!hasPeer(peerId);
+  return !!ws.peers[peerId];
 }
 function getPeer(peerId) {
   if (ws.callCore && ws.callCore.peers) return ws.callCore.peers.get(peerId);
@@ -821,7 +1214,7 @@ function getPeer(peerId) {
 }
 function setPeer(peerId, pc) {
   if (ws.callCore && ws.callCore.peers) ws.callCore.peers.set(peerId, pc);
-  setPeer(peerId, pc);
+  else ws.peers[peerId] = pc;
 }
 function deletePeer(peerId) {
   if (ws.callCore && ws.callCore.peers) ws.callCore.peers.delete(peerId);
@@ -842,11 +1235,35 @@ function ensureCallCore() {
   if (ws.callCore || !window.__CallCoreClass) return ws.callCore;
   ws.callCore = new window.__CallCoreClass({
     io,
+    socket: ws.socket,
     getIceConfig,
-    getLocalStream: async () => ws.localStream || window.__mediaCore?.getLocalStream(),
+    getLocalStream: async () => {
+      if (ws.localStream) return ws.localStream;
+      const { stream } = await acquireRawAudioStream(48000);
+      return new MediaStream(stream.getAudioTracks());
+    },
     onRemoteTrack: (peerId, stream) => addRemoteVideo(peerId, stream),
-    onPeerStateChange: (peerId, conn, ice) => console.log(`[CallCore] ${peerId} conn=${conn} ice=${ice}`),
-    onParticipantsChange: (count) => { $('call-participants').textContent = `参加者：${count}人`; },
+    onPeerStateChange: (peerId, conn, ice) => {
+      console.log(`[CallCore] ${peerId} conn=${conn} ice=${ice}`);
+      updatePeerConnectionState(peerId, conn, ice);
+    },
+    onParticipantsChange: (count) => {
+      updateParticipants(count);
+      if (ws.audioMuted) setTimeout(() => applyCallAudioMuteState(), 0);
+    },
+    onQualityChange: (profile) => updateCallQuality(profile),
+    onPeerLeft: (peerId) => {
+      delete peerUsernames[peerId];
+      const wrapper = $(`wrapper-${peerId}`);
+      if (wrapper) wrapper.remove();
+      typingPeers.delete(peerId);
+      updateTypingIndicator();
+      updateVideoGridLayout();
+    },
+    onRoomFull: (max) => {
+      showToast(`Room is full. Maximum ${max} participants.`, 'error');
+      leaveCall();
+    },
   });
   return ws.callCore;
 }
@@ -868,10 +1285,34 @@ function initSocket() {
       // 通話中に再接続した場合：ルームへ自動再参加
       $('label-call').textContent = `通話：再接続中 → ${ws.roomId}`;
       const username = getUserName();
-      ws.socket.emit('join-room', { roomId: ws.roomId, username });
+      // 再接続時：古いPeerConnectionを全てクリーンアップしてから再参加
+      if (ws.callCore) {
+        ws.callCore.destroy();
+        // CallCoreインスタンスは維持しつつ、socketを再バインド
+        ws.callCore.connectSocket(ws.socket);
+      }
+      Object.keys(ws.peers).forEach(peerId => {
+        const pc = ws.peers[peerId];
+        if (pc) pc.close();
+      });
+      ws.peers = {};
+      document.querySelectorAll('.remote-wrapper').forEach(el => el.remove());
+      updateVideoGridLayout();
+      if (ws.callCore) void ws.callCore.joinRoom({ roomId: ws.roomId, username });
+      else ws.socket.emit('join-room', { roomId: ws.roomId, username });
+      void syncClockWithServer();
       // サーバー録音も再送
       if (srvRecActive && srvRecMR && srvRecMR.state !== 'inactive') {
-        ws.socket.emit('start-server-recording', { username });
+        srvRecLastValidChunkAt = Date.now();
+        setRecordingHealthAlert({ username, source: 'client', active: false });
+        ws.socket.emit('start-server-recording', {
+          username,
+          syncId: ws.syncId || null,
+          startEpoch: srvRecStartEpoch,
+          clockSyncOk: srvRecClockSync?.clockSyncOk,
+          clockRttMs: srvRecClockSync?.clockRttMs,
+          clockOffsetMs: srvRecClockSync?.clockOffsetMs,
+        });
         console.log('[再接続] ルーム再参加 + サーバー録音再送:', ws.roomId);
       }
       showToast('接続が復旧しました', 'success');
@@ -883,6 +1324,20 @@ function initSocket() {
   ws.socket.on('disconnect', () => {
     setDot('call', 'warn');
     $('label-call').textContent = ws.inCall ? '通話：切断（再接続中...）' : '通話：切断（再接続中）';
+    if (ws.inCall) {
+      if (ws.callCore) ws.callCore.destroy();
+      Object.keys(ws.peers).forEach(peerId => {
+        const pc = ws.peers[peerId];
+        if (pc) pc.close();
+      });
+      ws.peers = {};
+      document.querySelectorAll('.remote-wrapper').forEach(el => el.remove());
+      updateVideoGridLayout();
+    }
+    if (Array.isArray(ws.socket?.sendBuffer)) {
+      const staleSignals = new Set(['offer', 'answer', 'ice-candidate']);
+      ws.socket.sendBuffer = ws.socket.sendBuffer.filter(packet => !staleSignals.has(packet?.data?.[0]));
+    }
   });
 
   ws.socket.on('connect_error', () => {
@@ -890,20 +1345,85 @@ function initSocket() {
     $('label-call').textContent = '通話：接続エラー';
   });
 
+  ws.socket.on('username-assigned', ({ username, originalUsername, transliterated, deduplicated }) => {
+    ws.username = username;
+    const input = $('username-input');
+    if (input) input.value = username;
+    saveUsername(username);
+    const localLabel = $('local-video-label');
+    if (localLabel) localLabel.textContent = `${username}（自分）`;
+    if (deduplicated) {
+      showToast(`同名の参加者がいるため「${username}」に変更しました`, 'info');
+    } else if (transliterated) {
+      showToast(`表示名「${originalUsername}」を「${username}」に変換しました`, 'success');
+    }
+  });
+
+  ws.socket.on('username-invalid', ({ message }) => {
+    if (ws.inCall) leaveCall();
+    showToast(message || '表示名を確認してください', 'error');
+    const input = $('username-input');
+    if (input) input.focus();
+  });
+
+  ws.socket.on('server-recording-error', ({ message }) => {
+    setDot('srv-rec', 'warn');
+    $('label-srv-rec').textContent = '録音：開始できませんでした';
+    setFooterStatus('srv', 'warn', '録音：開始できませんでした');
+    showToast(message || 'サーバー録音を開始できませんでした', 'error');
+  });
+
   // サーバー録音完了通知
   ws.socket.on('server-recording-saved', ({ filename, size, fallback }) => {
     const sizeStr = size ? ` (${(size / 1024 / 1024).toFixed(1)} MB)` : '';
     const label = fallback
-      ? `⚠️ サーバー録音（WebM）：${filename}${sizeStr}`
-      : `✓ サーバー録音完了：${filename}${sizeStr}`;
+      ? `⚠️ 録音（WebM）：${filename}${sizeStr}`
+      : `✓ 録音完了：${filename}${sizeStr}`;
     const status = fallback ? 'warn' : 'done';
     const itemId = 'srv-' + filename;
     addConvertStatus(itemId, label, status);
     setDot('srv-rec', fallback ? 'warn' : 'ok');
-    $('label-srv-rec').textContent = fallback ? 'サーバー録音：WebMで保存' : 'サーバー録音：保存完了';
+    $('label-srv-rec').textContent = fallback ? '録音：WebMで保存' : '録音：保存完了';
     setFooterStatus('srv', fallback ? 'warn' : 'ok', $('label-srv-rec').textContent);
-    showToast(fallback ? `録音をWebMで保存しました: ${filename}` : `サーバー録音を保存しました: ${filename}`, fallback ? 'warn' : 'success');
+    showToast(fallback ? `録音をWebMで保存しました: ${filename}` : `録音を保存しました: ${filename}`, fallback ? 'warn' : 'success');
     console.log('[サーバー録音完了]', filename, sizeStr);
+  });
+
+  ws.socket.on('recording-health-alert', ({ username, reason, message, active }) => {
+    setRecordingHealthAlert({
+      username,
+      reason: reason === 'recovered' ? 'no-audio' : (reason || 'no-audio'),
+      source: 'server',
+      message,
+      active: active !== false && reason !== 'recovered',
+    });
+  });
+
+  ws.socket.on('preflight-command', command => {
+    preflightState.running = true;
+    const button = $('btn-preflight');
+    if (button) {
+      button.disabled = true;
+      button.textContent = '⌛ チェック中';
+    }
+    void runPreflightCheck(command);
+  });
+
+  ws.socket.on('preflight-result', result => {
+    renderPreflightResult(result);
+  });
+
+  ws.socket.on('preflight-clear', () => {
+    clearPreflightResult();
+  });
+
+  ws.socket.on('recording-discarded', ({ username }) => {
+    setRecordingHealthAlert({
+      username,
+      reason: 'discarded',
+      source: `discarded-${Date.now()}`,
+      active: true,
+    });
   });
 
   ws.socket.on('room-peers', async (peers) => {
@@ -1017,6 +1537,31 @@ function initSocket() {
     updateTypingIndicator();
   });
 
+  ws.socket.on('episode-lock', ({ episodeId, holderId, holderName }) => {
+    if (holderId === ws.socket.id) {
+      myHeldLock = episodeId; delete lockedEpisodes[episodeId];
+    } else {
+      lockedEpisodes[episodeId] = holderName;
+      if (myHeldLock === episodeId) myHeldLock = null;
+    }
+    applyLockUI();
+  });
+  ws.socket.on('episode-unlock', ({ episodeId }) => {
+    delete lockedEpisodes[episodeId];
+    if (myHeldLock === episodeId) myHeldLock = null;
+    applyLockUI();
+  });
+  ws.socket.on('episode-lock-denied', ({ episodeId, holderName }) => {
+    lockedEpisodes[episodeId] = holderName;
+    if (myHeldLock === episodeId) myHeldLock = null;
+    // 自分の未送信の編集を破棄してサーバー内容へ戻す
+    if (episodeState.activeId === episodeId) {
+      const ep = getActiveEpisode();
+      if (ep) $('script-textarea').value = ep.content;
+    }
+    applyLockUI();
+  });
+
   // ===== 接続品質RTT計測 =====
   ws.socket.on('client-pong', () => {
     if (!rttPingSentAt) return;
@@ -1026,18 +1571,41 @@ function initSocket() {
   });
 
   // ===== 一斉録音開始コマンド受信 =====
-  ws.socket.on('recording-start-command', ({ initiator }) => {
-    if (state.isRecording) {
+  ws.socket.on('recording-start-command', ({ initiator, syncId, countdownEndEpoch, lateJoin = false }) => {
+    clearPreflightResult();
+    ws.syncId = syncId || null;
+    if (isRecordingActive()) {
       // すでに録音中の場合は無視（途中参加者が個別に録音済みのケース）
       console.log('[一斉録音] すでに録音中のため無視');
       return;
     }
-    showToast(`「${initiator}」が一斉録音を開始しました。録音を開始します...`, 'info');
-    // 少し間を置いてから開始（トースト表示を見せるため）
-    setTimeout(() => {
-      startRecording();
-      startServerRecording(getUsername());
-    }, 500);
+    // カウントダウン中も取りこぼさないよう、録音自体は待たずに開始する
+    void startRecordingPair();
+    showRecordingCountdown(countdownEndEpoch, { lateJoin });
+    showToast(lateJoin
+      ? '進行中の収録へ参加しました。3、2、1の合図で会話に参加してください。'
+      : `「${initiator}」が一斉録音を開始しました。3、2、1の合図で本編を始めてください。`, 'info');
+  });
+
+  // 一斉停止コマンド受信
+  ws.socket.on('recording-stop-command', () => {
+    hideRecordingCountdown();
+    if (isRecordingActive()) {
+      showToast('録音を停止します...', 'info');
+      stopRecording();
+      stopServerRecording();
+    }
+    ws.syncId = null;
+  });
+
+  ws.socket.on('peer-recording-status', ({ peerId, username, isRecording }) => {
+    const label = $(`label-${peerId}`);
+    if (label) {
+      label.textContent = isRecording ? `${username} ⏺` : username;
+      label.style.background = isRecording
+        ? 'rgba(239,68,68,0.75)'
+        : (peerId === ws.socket?.id ? 'rgba(34,197,94,0.75)' : 'rgba(0,0,0,0.65)');
+    }
   });
 }
 
@@ -1045,23 +1613,13 @@ function initSocket() {
 async function createPeer(peerId, isInitiator) {
   const iceConfig = await getIceConfig();
   const pc = new RTCPeerConnection(iceConfig);
-  setPeer(peerId, pc);
 
   if (ws.localStream) {
     ws.localStream.getTracks().forEach(track => {
-      const sender = pc.addTrack(track, ws.localStream);
-      const params = sender.getParameters();
-      if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-      if (track.kind === 'video') {
-        params.encodings[0].maxBitrate = 120_000;  // 安定性優先で大幅に圧縮
-        params.encodings[0].maxFramerate = 8;
-        params.encodings[0].scaleResolutionDownBy = 2;
-      } else if (track.kind === 'audio') {
-        params.encodings[0].maxBitrate = 24_000;   // 通話音質より接続安定性を優先
-      }
-      sender.setParameters(params).catch(() => {});
+      pc.addTrack(track, ws.localStream);
     });
   }
+  setPeer(peerId, pc);
 
   pc.ontrack = (event) => {
     console.log(`[WebRTC] ${peerId} ontrack kind=${event.track?.kind || '?'} streams=${event.streams?.length || 0}`);
@@ -1137,23 +1695,45 @@ function addRemoteVideo(peerId, stream) {
   label.id = `label-${peerId}`;
   label.textContent = peerUsernames[peerId] || `参加者 ${peerId.slice(0, 6)}`;
 
+  const state = document.createElement('div');
+  state.id = `peer-state-${peerId}`;
+  state.style.fontSize = '0.72rem';
+  state.style.color = 'var(--text-dim)';
+  state.style.padding = '4px 2px 0';
+  state.textContent = 'conn=new ice=new';
+
   wrapper.appendChild(video);
   wrapper.appendChild(label);
+  wrapper.appendChild(state);
   $('video-grid').appendChild(wrapper);
   updateVideoGridLayout();
 }
 
+function updatePeerConnectionState(peerId, connectionState, iceConnectionState) {
+  const stateEl = $(`peer-state-${peerId}`);
+  if (!stateEl) return;
+  stateEl.textContent = `conn=${connectionState} ice=${iceConnectionState}`;
+}
+
+window.addEventListener('resize', () => { if (ws && ws.inCall) updateVideoGridLayout(); });
 function updateVideoGridLayout() {
   const grid = $('video-grid');
-  const wrappers = grid.querySelectorAll('.video-wrapper');
-  if (wrappers.length <= 1) {
-    grid.style.gridTemplateColumns = '1fr';
-    grid.style.gridAutoRows = 'auto';
-    grid.style.maxWidth = '560px';
-    grid.style.margin = '0 auto';
+  const n = grid.querySelectorAll('.video-wrapper').length;
+  // 人数に応じた列数（各画面をできるだけ大きく）
+  // 1人=1列 / 2〜4人=2列 / 5〜6人=3列
+  let cols;
+  if (n <= 1) cols = 1;
+  else if (n <= 4) cols = 2;
+  else cols = 3;
+  // 狭い画面ではタイルが小さくなりすぎないよう列数を抑える
+  if (window.innerWidth < 640 && cols > 2) cols = 2;
+  grid.classList.toggle('solo', n <= 1);
+  if (n <= 1) {
+    grid.style.gridTemplateColumns = ''; // CSSの.soloに任せる
+    grid.style.maxWidth = '';
+    grid.style.margin = '';
   } else {
-    grid.style.gridTemplateColumns = '';
-    grid.style.gridAutoRows = '';
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     grid.style.maxWidth = '';
     grid.style.margin = '';
   }
@@ -1167,8 +1747,8 @@ function removePeer(peerId) {
   updateVideoGridLayout();
 }
 
-function updateParticipants() {
-  const count = peerCount() + 1;
+function updateParticipants(participantCount = null) {
+  const count = participantCount || peerCount() + 1;
   $('call-participants').textContent = `参加者：${count}人`;
   const userCount = $('script-user-count');
   if (ws.inCall) {
@@ -1177,52 +1757,333 @@ function updateParticipants() {
   }
 }
 
+function updateCallQuality(profile) {
+  const quality = $('call-quality');
+  if (!quality || !profile) return;
+  const labels = {
+    two: '高画質',
+    group: '標準',
+    six: '多人数',
+  };
+  quality.textContent = `通話品質：${labels[profile.id] || '自動'}（360p / ${profile.maxFramerate}fps）`;
+}
+
 // ===== 通話参加 =====
 let preJoinScriptContent = '';
 let preJoinActiveId = null;
 let preJoinEpisodes = null;
 let isFirstJoin = false; // 初回参加時のみサーバーのactiveIdを優先するフラグ
 
+// ===== サーバー時刻同期（録音の自動位置合わせ用） =====
+async function syncClockWithServer({ showWarning = false } = {}) {
+  if (!ws.socket || !ws.socket.connected) {
+    const failed = { clockSyncOk: false, clockRttMs: null, clockOffsetMs: ws.clockOffset || 0, syncedAt: Date.now() };
+    ws.clockSyncState = failed;
+    if (showWarning) {
+      setRecordingHealthAlert({ username: getUserName(), reason: 'clock-sync', source: 'clock', active: true });
+    }
+    return failed;
+  }
+  const samples = (await Promise.all(Array.from({ length: 5 }, async () => {
+    const t0 = Date.now();
+    const resp = await new Promise((res) => {
+      let done = false;
+      ws.socket.emit('time-sync', {}, (r) => { if (!done) { done = true; res(r); } });
+      setTimeout(() => { if (!done) { done = true; res(null); } }, 1000);
+    });
+    const t1 = Date.now();
+    if (resp && typeof resp.server === 'number') {
+      return { rtt: t1 - t0, offset: resp.server - (t0 + t1) / 2 };
+    }
+    return null;
+  }))).filter(Boolean);
+  if (samples.length) {
+    samples.sort((a, b) => a.rtt - b.rtt);
+    const best = samples[0];
+    ws.clockOffset = best.offset;
+    ws.clockSyncState = {
+      clockSyncOk: best.rtt <= 500,
+      clockRttMs: Math.round(best.rtt),
+      clockOffsetMs: Math.round(best.offset),
+      syncedAt: Date.now(),
+    };
+    console.log(`[時刻同期] サーバーとの時計差 ${Math.round(ws.clockOffset)}ms (rtt=${best.rtt}ms)`);
+  } else {
+    ws.clockSyncState = {
+      clockSyncOk: false,
+      clockRttMs: null,
+      clockOffsetMs: Math.round(ws.clockOffset || 0),
+      syncedAt: Date.now(),
+    };
+    console.warn('[時刻同期] 失敗（オフセット未更新のまま録音します）');
+  }
+  if (showWarning) {
+    const bad = !ws.clockSyncState.clockSyncOk;
+    const message = ws.clockSyncState.clockRttMs === null
+      ? '⚠ サーバーとの時刻同期に失敗しました。録音は続行しますが、自動位置合わせは保証されません。'
+      : `⚠ 時刻同期の応答が遅い状態です（RTT ${ws.clockSyncState.clockRttMs}ms）。録音は続行しますが、自動位置合わせは保証されません。`;
+    setRecordingHealthAlert({ username: getUserName(), reason: 'clock-sync', source: 'clock', message, active: bad });
+  }
+  return { ...ws.clockSyncState };
+}
+
+// ===== 画面スリープ防止（Wake Lock: スマホ・タブレット対策） =====
+let _wakeLock = null;
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return false;
+  try {
+    if (_wakeLock && !_wakeLock.released) return true;
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    console.log('[WakeLock] 画面スリープ防止を有効化');
+    return true;
+  } catch (e) {
+    console.warn('[WakeLock] 取得失敗:', e.message);
+    return false;
+  }
+}
+function releaseWakeLock() {
+  try { if (_wakeLock) _wakeLock.release(); } catch {}
+  _wakeLock = null;
+}
+// 画面復帰時に自動で再取得（スマホでタブ切替・通知パネル操作をした場合）
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !_wakeLock && ws.inCall) {
+    acquireWakeLock();
+  }
+});
+
+const preflightState = {
+  running: false,
+  latest: null,
+};
+
+function preflightMark(ok, pending = false) {
+  if (pending) return '確認中';
+  return ok ? 'OK' : 'NG';
+}
+
+function getPreflightFix(row) {
+  if (row.pending) return '結果を待っています';
+  const fixes = [];
+  if (!row.micOk) fixes.push(row.audioStatus === 'digital-silence' ? 'マイクのミュートと入力元を確認' : 'マイクを選び直す');
+  if (!row.serverReachOk) fixes.push('回線を確認し、もう一度チェック');
+  if (!row.clockSyncOk) fixes.push('回線混雑を避けて再チェック');
+  if (!row.wakeLockOk) fixes.push('画面をオンのままにする');
+  if (row.inAppBrowser) fixes.push('SafariまたはChromeで開き直す');
+  return fixes.length ? fixes.join(' / ') : '修正不要';
+}
+
+function renderPreflightResult(payload) {
+  const panel = $('preflight-results');
+  if (!panel || !payload) return;
+  preflightState.latest = payload;
+  preflightState.running = !payload.complete;
+  const button = $('btn-preflight');
+  if (button) {
+    button.disabled = preflightState.running;
+    button.textContent = preflightState.running ? '⌛ チェック中' : '🔍 収録前チェック';
+  }
+
+  panel.replaceChildren();
+  const summary = document.createElement('div');
+  const problemNames = (payload.participants || [])
+    .filter(row => !row.pending && !row.ok)
+    .map(row => `${row.username}: ${(row.problems || []).join('・')}`);
+  if (!payload.complete) {
+    summary.textContent = '収録前チェックを実行中です。参加者全員の結果を待っています。';
+    summary.className = 'preflight-summary warn';
+  } else if (payload.allOk) {
+    summary.textContent = '全員の録音準備ができています。';
+    summary.className = 'preflight-summary ok';
+  } else {
+    const diskProblem = payload.disk?.level !== 'ok' ? `サーバー: ${payload.disk?.message || '空き容量を確認'}` : null;
+    summary.textContent = `確認が必要です: ${[...problemNames, diskProblem].filter(Boolean).join(' / ')}`;
+    summary.className = 'preflight-summary warn';
+  }
+  panel.appendChild(summary);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'preflight-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'preflight-table';
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['参加者', 'マイク', '時刻', 'サーバー到達', '画面維持', 'ブラウザ', '参加方法', '対応'].forEach(label => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headRow.appendChild(th);
+  });
+  head.appendChild(headRow);
+  table.appendChild(head);
+  const body = document.createElement('tbody');
+  for (const row of payload.participants || []) {
+    const tr = document.createElement('tr');
+    const cells = [
+      row.username,
+      `${preflightMark(row.micOk, row.pending)}${row.micLabel ? ` (${row.micLabel})` : ''}`,
+      row.pending ? '確認中' : `${preflightMark(row.clockSyncOk)}${row.clockRttMs === null ? '' : ` (${row.clockRttMs}ms)`}`,
+      preflightMark(row.serverReachOk, row.pending),
+      preflightMark(row.wakeLockOk, row.pending),
+      row.pending ? '確認中' : `${row.browser || '不明'}${row.inAppBrowser ? ' (アプリ内)' : ''}`,
+      row.speakerMode ? 'スピーカー' : 'イヤホン',
+      getPreflightFix(row),
+    ];
+    cells.forEach((value, index) => {
+      const td = document.createElement('td');
+      td.textContent = value;
+      if (index === 7 && value !== '修正不要') td.className = 'preflight-fix';
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  }
+  table.appendChild(body);
+  wrap.appendChild(table);
+  panel.appendChild(wrap);
+
+  const disk = document.createElement('div');
+  disk.className = 'preflight-disk';
+  disk.textContent = `サーバー空き容量: ${payload.disk?.message || '確認できません'}`;
+  panel.appendChild(disk);
+  panel.hidden = false;
+}
+
+function clearPreflightResult() {
+  preflightState.running = false;
+  preflightState.latest = null;
+  const panel = $('preflight-results');
+  if (panel) {
+    panel.hidden = true;
+    panel.replaceChildren();
+  }
+  const button = $('btn-preflight');
+  if (button) {
+    button.disabled = false;
+    button.textContent = '🔍 収録前チェック';
+  }
+}
+
+function getBrowserName() {
+  const ua = navigator.userAgent || '';
+  if (/Edg\//.test(ua)) return 'Edge';
+  if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return 'Chrome';
+  if (/Firefox\//.test(ua)) return 'Firefox';
+  if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'Safari';
+  return 'Other';
+}
+
+async function runPreflightCheck({ checkId, countdownEndEpoch }) {
+  let recorder = null;
+  let track = null;
+  let error = null;
+  const sendPromises = [];
+  try {
+    if (isRecordingActive()) throw new Error('録音中のためセルフチェックを実行できません');
+    const waitMs = Math.max(0, Number(countdownEndEpoch) - (Date.now() + (ws.clockOffset || 0)));
+    if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
+    track = await ensureRecordingAudioReady();
+    if (!track) throw new Error('共有マイクを取得できません');
+
+    const stream = new MediaStream([track]);
+    const mimeType = getBestMimeType();
+    recorder = new MediaRecorder(stream, {
+      mimeType: mimeType || undefined,
+      audioBitsPerSecond: 128000,
+    });
+    let seq = 0;
+    recorder.ondataavailable = event => {
+      if (!event.data || event.data.size === 0 || !ws.socket) return;
+      const pending = event.data.arrayBuffer().then(buf => {
+        ws.socket.emit('audio-stream-chunk', { checkId, seq: ++seq, buf });
+      });
+      sendPromises.push(pending);
+    };
+    ws.socket.emit('start-server-recording', { preflight: true, checkId });
+    const stopped = new Promise(resolve => recorder.addEventListener('stop', resolve, { once: true }));
+    recorder.start(1000);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    if (recorder.state !== 'inactive') recorder.stop();
+    await stopped;
+    await Promise.all(sendPromises);
+  } catch (err) {
+    error = err;
+    console.error('[収録前チェック]', err);
+    try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {}
+  }
+
+  const clock = await syncClockWithServer({ showWarning: false });
+  const wakeLockOk = await acquireWakeLock();
+  ws.socket?.emit('preflight-report', {
+    checkId,
+    clockSyncOk: clock.clockSyncOk,
+    clockRttMs: clock.clockRttMs,
+    clockOffsetMs: clock.clockOffsetMs,
+    wakeLockOk,
+    browser: getBrowserName(),
+    inAppBrowser: isInAppBrowser(),
+    speakerMode: Boolean($('speaker-mode')?.checked),
+    micLabel: $('mic-select')?.selectedOptions?.[0]?.textContent || track?.label || '不明',
+    micTrackOk: Boolean(track && track.readyState === 'live' && !track.muted && !error),
+    error: error?.message || null,
+  });
+}
+
 async function joinCall() {
   const roomId = $('room-input').value.trim().toUpperCase();
   if (!roomId) { showToast('ルームIDを入力してください', 'error'); return; }
 
-  const username = getUserName();
-  saveUsername(username.replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 20) || 'user');
+  const usernameInput = $('username-input');
+  const username = usernameInput.value.normalize('NFKC').trim();
+  if (!username) {
+    showToast('表示名を入力してください', 'error');
+    usernameInput.focus();
+    return;
+  }
+  if (/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/u.test(username)) {
+    showToast('漢字は自動変換できません。ひらがな、カタカナ、または半角英数字で入力してください', 'error');
+    usernameInput.focus();
+    return;
+  }
 
+  let stream = null;
   try {
     $('btn-join-call').disabled = true;
     $('btn-join-call').textContent = '接続中...';
+    $('username-input').classList.remove('needs-input');
 
-    let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1,
-        },
+      const { stream: audioStream } = await acquireRawAudioStream(48000);
+      const sharedAudioTrack = audioStream.getAudioTracks()[0];
+      if (!sharedAudioTrack) throw new Error('マイク音声を取得できませんでした');
+
+      let videoTrack = null;
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 320, max: 640 },
-          height: { ideal: 180, max: 360 },
-          frameRate: { ideal: 8, max: 10 },
+          width: { ideal: 640, max: 640 },
+          height: { ideal: 360, max: 360 },
+          frameRate: { ideal: 24, max: 24 },
           facingMode: 'user'
         }
       });
-    } catch {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        videoTrack = videoStream.getVideoTracks()[0] || null;
+      } catch (videoError) {
+        console.warn('[WebRTC] カメラ取得失敗、音声のみで参加:', videoError);
         showToast('カメラが利用できないため音声のみで参加します', 'info');
-      } catch (e) {
-        throw new Error('マイク/カメラへのアクセスが拒否されました');
       }
+
+      stream = new MediaStream([videoTrack, sharedAudioTrack].filter(Boolean));
+    } catch (mediaError) {
+      throw new Error(`マイクへのアクセスに失敗しました: ${mediaError.message}`);
     }
 
     ws.localStream = stream;
+    attachMicWatchdog(stream.getAudioTracks()[0]);
+    if (window.__mediaCore) window.__mediaCore.setLocalStream(stream);
     ws.roomId = roomId;
+    ws.username = username;
     ws.inCall = true;
+    acquireWakeLock();
     ensureCallCore();
 
     const localLabel = $('local-video-label');
@@ -1231,11 +2092,9 @@ async function joinCall() {
     const localVid = $('local-video');
     localVid.srcObject = stream;
     try {
-      if (window.__mediaCore) {
-        await window.__mediaCore.attachLocal(localVid);
-      } else {
-        await localVid.play();
-      }
+      // ローカルプレビューのplay()は最大2秒で打ち切り（一部端末/自動再生ポリシーでplay()が解決せず参加処理がハングするのを防止）
+      const _attach = window.__mediaCore ? window.__mediaCore.attachLocal(localVid, stream) : localVid.play();
+      await Promise.race([Promise.resolve(_attach), new Promise(res => setTimeout(res, 2000))]);
     } catch (e) {
       console.warn('[WebRTC] local preview play失敗', e);
     }
@@ -1260,16 +2119,20 @@ async function joinCall() {
     isFirstJoin = true; // 初回参加フラグを立てる
 
     if (ws.callCore) {
-      ws.socket = ws.callCore.connectSocket();
+      ws.socket = ws.callCore.connectSocket(ws.socket);
       await ws.callCore.joinRoom({ roomId, username });
     } else {
       ws.socket.emit('join-room', { roomId, username });
     }
+    void syncClockWithServer();
 
     const url = new URL(window.location.href);
     url.searchParams.set('room', roomId);
     history.pushState({}, '', url);
-    $('invite-url-text').textContent = url.toString();
+    // 招待URLには openExternalBrowser=1 を付与（LINEのアプリ内ブラウザを回避し外部ブラウザで開かせる公式パラメータ）
+    const inviteUrl = new URL(url);
+    inviteUrl.searchParams.set('openExternalBrowser', '1');
+    $('invite-url-text').textContent = inviteUrl.toString();
     $('call-room-label').textContent = `ルームID: ${roomId}`;
 
     $('call-setup').style.display = 'none';
@@ -1278,9 +2141,24 @@ async function joinCall() {
     $('label-call').textContent = `通話中：${roomId}`;
     updateParticipants();
     showToast(`ルーム「${roomId}」に参加しました`, 'success');
+    updateVideoGridLayout(); // 参加直後にレイアウト(1人=solo)を適用
     startRTTMonitoring();
 
   } catch (err) {
+    if (ws.callCore) {
+      ws.callCore.destroy();
+      ws.callCore = null;
+    }
+    Object.keys(ws.peers).forEach(removePeer);
+    ws.peers = {};
+    if (ws.socket && ws.roomId) ws.socket.emit('leave-room');
+    stream?.getVideoTracks().forEach(track => track.stop());
+    ws.localStream = null;
+    ws.inCall = false;
+    if (window.__mediaCore) window.__mediaCore.localStream = null;
+    ws.roomId = null;
+    ws.username = null;
+    releaseWakeLock();
     $('btn-join-call').disabled = false;
     $('btn-join-call').textContent = '📹 通話に参加';
     showToast(`エラー: ${err.message}`, 'error');
@@ -1289,15 +2167,23 @@ async function joinCall() {
 
 // ===== 通話終了 =====
 function leaveCall() {
+  const wasRecording = isRecordingActive();
   stopServerRecording();
+  if (state.isRecording) stopRecording();
+  if (wasRecording) showToast('通話終了にともない録音を停止しました。変換中...', 'info');
 
+  if (ws.callCore) {
+    ws.callCore.destroy();
+    ws.callCore = null;
+  }
   Object.keys(ws.peers).forEach(removePeer);
   ws.peers = {};
 
-  if (ws.localStream) {
-    ws.localStream.getTracks().forEach(t => t.stop());
-    ws.localStream = null;
-  }
+  stopVUMeter();
+  if (ws.localStream) ws.localStream.getVideoTracks().forEach(t => t.stop());
+  ws.localStream = null;
+  releaseSharedAudioCapture();
+  if (window.__mediaCore) window.__mediaCore.localStream = null;
 
   document.querySelectorAll('.remote-wrapper').forEach(el => el.remove());
   $('local-wrapper').innerHTML = `
@@ -1305,9 +2191,11 @@ function leaveCall() {
     <div class="video-label" id="local-video-label">自分</div>
   `;
 
-  if (ws.socket) ws.socket.volatile.emit('leave-room');
+  if (ws.socket) ws.socket.emit('leave-room');
   ws.roomId = null;
+  ws.username = null;
   ws.inCall = false;
+  releaseWakeLock();
   ws.audioMuted = false;
   ws.videoMuted = false;
 
@@ -1323,14 +2211,15 @@ function leaveCall() {
   $('btn-mute-audio').classList.remove('muted');
   $('btn-mute-video').textContent = '📹 カメラOFF';
   $('btn-mute-video').classList.remove('muted');
+  $('call-quality').textContent = '通話品質：高画質（360p / 24fps）';
 
   setDot('call', 'ok');
   $('label-call').textContent = '通話：接続OK';
   setDot('srv-rec', '');
-  $('label-srv-rec').textContent = 'サーバー録音：待機中';
-  setFooterStatus('srv', '', 'サーバー録音：待機中');
+  $('label-srv-rec').textContent = '録音：待機中';
+  setFooterStatus('srv', '', '録音：待機中');
   stopRTTMonitoring();
-  showToast('通話を終了しました。サーバー録音をFLAC変換中...', 'info');
+  showToast('通話を終了しました。録音をFLAC変換中...', 'info');
   updateSyncBadge('offline');
 
   if (ws.socket) ws.socket.emit('script-typing', false);
@@ -1342,10 +2231,30 @@ function leaveCall() {
   loadLocalEpisodes();
 }
 
-function toggleAudio() {
+function findAudioSender(pc) {
+  const transceiver = pc.getTransceivers?.().find(item =>
+    item.sender && (item.sender.track?.kind === 'audio' || item.receiver?.track?.kind === 'audio')
+  );
+  return transceiver?.sender || pc.getSenders().find(sender => sender.track?.kind === 'audio') || null;
+}
+
+function getActivePeerConnections() {
+  return ws.callCore ? ws.callCore.peers.values() : Object.values(ws.peers);
+}
+
+async function applyCallAudioMuteState() {
+  if (!ws.localStream) return;
+  const audioTrack = ws.localStream.getAudioTracks()[0] || null;
+  for (const pc of getActivePeerConnections()) {
+    const sender = findAudioSender(pc);
+    if (sender) await sender.replaceTrack(ws.audioMuted ? null : audioTrack).catch(() => {});
+  }
+}
+
+async function toggleAudio() {
   if (!ws.localStream) return;
   ws.audioMuted = !ws.audioMuted;
-  ws.localStream.getAudioTracks().forEach(t => { t.enabled = !ws.audioMuted; });
+  await applyCallAudioMuteState();
   const btn = $('btn-mute-audio');
   btn.textContent = ws.audioMuted ? '🔇 ミュート中' : '🎙️ ミュート';
   btn.classList.toggle('muted', ws.audioMuted);
@@ -1404,12 +2313,59 @@ $('btn-leave-call').addEventListener('click', leaveCall);
 $('btn-mute-audio').addEventListener('click', toggleAudio);
 $('btn-mute-video').addEventListener('click', toggleVideo);
 
+$('btn-preflight').addEventListener('click', () => {
+  if (!ws.inCall || !ws.socket?.connected) {
+    showToast('通話に参加してから収録前チェックを実行してください', 'error');
+    return;
+  }
+  if (isRecordingActive()) {
+    showToast('録音を停止してから収録前チェックを実行してください', 'error');
+    return;
+  }
+  ws.socket.emit('preflight-start');
+});
+
 // 一斉録音開始ボタン
 $('btn-rec-all').addEventListener('click', () => {
   if (!ws.inCall || !ws.socket) return;
-  if (!confirm('参加中の全員のローカル録音を今すぐ開始します。よろしいですか？')) return;
+  if (isRecordingActive()) {
+    if (!confirm('参加中の全員の録音を停止します。よろしいですか？')) return;
+    ws.socket.emit('recording-stop-all');
+    return;
+  }
+  const latest = preflightState.latest;
+  const stale = latest?.roomId !== ws.roomId
+    || !latest?.completedAt
+    || (Date.now() + (ws.clockOffset || 0)) - Number(latest.completedAt) > 10 * 60 * 1000;
+  const needsCheck = stale || !latest?.allOk;
+  let confirmedWithoutCheck = false;
+  if (needsCheck) {
+    const reason = !latest?.completedAt
+      ? 'まだ収録前チェックを実行していません。'
+      : (stale ? '収録前チェックから10分以上経過しています。' : '前回の収録前チェックに問題があります。');
+    if (confirm(`${reason}\n\n今すぐ収録前チェックを実行しますか？`)) {
+      ws.socket.emit('preflight-start');
+      return;
+    }
+    if (!confirm('チェックせずに録音を開始します。本当に続行しますか？')) return;
+    confirmedWithoutCheck = true;
+  }
+  if (!confirmedWithoutCheck && !confirm('参加中の全員の録音を今すぐ開始します。よろしいですか？')) return;
   ws.socket.emit('recording-start-all');
 });
+
+// 全員録音ボタンの表示を録音状態に合わせて切り替える
+function updateRecAllButton() {
+  const button = $('btn-rec-all');
+  if (!button) return;
+  const recording = isRecordingActive();
+  button.textContent = recording ? '⏹ 全員停止' : '⏺ 全員録音';
+  button.classList.toggle('btn-danger', recording);
+  button.classList.toggle('btn-record', !recording);
+  button.title = recording
+    ? '参加中の全員の録音を停止します'
+    : '参加中の全員の録音を同時に開始します';
+}
 $('btn-random-room').addEventListener('click', () => { $('room-input').value = generateRoomId(); });
 $('btn-copy-url').addEventListener('click', () => {
   navigator.clipboard.writeText($('invite-url-text').textContent)
@@ -1425,31 +2381,61 @@ $('room-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') join
 let srvRecMR = null;
 let srvRecStream = null;
 let srvRecActive = false;
+let srvRecStarting = false;
 let srvBufferFullCount = 0; // バッファ詰まり連続カウント（警告用）
+let srvRecStreamShared = false; // サーバー録音が共有トラックを使用中か
+let srvRecRequestDataTimer = null;
+let srvRecHealthTimer = null;
+let srvRecLastValidChunkAt = 0;
+let srvRecClockSync = null;
+let srvRecStartEpoch = null;
+const RECORDING_STALL_MS = 45000;
+const RECORDING_HEALTH_INTERVAL_MS = 10000;
 
-async function startServerRecording(username) {
-  if (srvRecActive) return;
+function clearServerRecordingClientHealthTimers() {
+  clearTimeout(srvRecRequestDataTimer);
+  clearInterval(srvRecHealthTimer);
+  srvRecRequestDataTimer = null;
+  srvRecHealthTimer = null;
+}
+
+async function startServerRecording(username, clockSync = null) {
+  if (srvRecActive || srvRecStarting) return false;
+  srvRecStarting = true;
   try {
-    const deviceId = $('mic-select').value;
-    const constraints = {
-      audio: deviceId
-        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
-        : { echoCancellation: false, noiseSuppression: false, sampleRate: 48000 }
-    };
-    srvRecStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const freshClock = clockSync || await syncClockWithServer({ showWarning: true });
+    srvRecClockSync = { ...freshClock };
+    const audioTrack = await ensureRecordingAudioReady();
+    srvRecStream = new MediaStream([audioTrack]);
+    srvRecStreamShared = true;
 
     const mimeType = getBestMimeType();
     srvRecMR = new MediaRecorder(srvRecStream, {
       mimeType: mimeType || undefined,
-      audioBitsPerSecond: 48000, // 48kbps（低速回線対応・音声品質は十分維持）
+      audioBitsPerSecond: 128000, // 128kbps（サーバー録音が本命のため高音質化）
     });
 
     let srvChunkSeq = 0; // チャンクシーケンス番号（欠損検知用）
     srvBufferFullCount = 0;
-    ws.socket.emit('start-server-recording', { username });
+    srvRecLastValidChunkAt = Date.now();
+    srvRecMR.onstart = () => {
+      srvRecStartEpoch = Date.now() + (ws.clockOffset || 0);
+      ws.socket.emit('start-server-recording', {
+        username,
+        syncId: ws.syncId || null,
+        startEpoch: srvRecStartEpoch,
+        clockSyncOk: srvRecClockSync.clockSyncOk,
+        clockRttMs: srvRecClockSync.clockRttMs,
+        clockOffsetMs: srvRecClockSync.clockOffsetMs,
+      });
+    };
 
     srvRecMR.ondataavailable = async (e) => {
       if (e.data && e.data.size > 0 && ws.socket) {
+        if (e.data.size > 1024) {
+          srvRecLastValidChunkAt = Date.now();
+          setRecordingHealthAlert({ username, source: 'client', active: false });
+        }
         try {
           const buf = await e.data.arrayBuffer();
           const seq = ++srvChunkSeq;
@@ -1462,7 +2448,7 @@ async function startServerRecording(username) {
             ws.socket.volatile.emit('audio-stream-chunk', { seq, buf });
             // 3回連続詰まり → ユーザーに警告
             if (srvBufferFullCount >= 3) {
-              showToast('⚠️ 回線が混雑しています。クラウド録音の一部が欠損する可能性があります', 'error');
+              showToast('⚠️ 回線が混雑しています。録音の一部が欠損する可能性があります', 'error');
               srvBufferFullCount = 0;
             }
           } else {
@@ -1478,35 +2464,76 @@ async function startServerRecording(username) {
 
     srvRecMR.start(20000); // 20秒チャンク（送信頻度を下げて輻輳リスクを軽減）
     srvRecActive = true;
+    clearServerRecordingClientHealthTimers();
+    srvRecRequestDataTimer = setTimeout(() => {
+      if (srvRecActive && srvRecMR?.state === 'recording') {
+        try { srvRecMR.requestData(); } catch {}
+      }
+    }, 5000);
+    srvRecHealthTimer = setInterval(() => {
+      if (!srvRecActive) return;
+      if (!ws.socket?.connected) {
+        setRecordingHealthAlert({ username, source: 'client', active: false });
+        return;
+      }
+      const stalledMs = Date.now() - srvRecLastValidChunkAt;
+      if (stalledMs > RECORDING_STALL_MS) {
+        console.error(`[録音異常] ${Math.floor(stalledMs / 1000)}秒間、有効な音声チャンクを確認できません`);
+        setRecordingHealthAlert({ username, source: 'client', active: true });
+      }
+    }, RECORDING_HEALTH_INTERVAL_MS);
+    if (!LOCAL_RECORDING_ENABLED) { setRecordingUI(true); startTimer(); } // 録音UIはサーバー録音基準
 
     setDot('srv-rec', 'srv-rec');
-    $('label-srv-rec').textContent = `サーバー録音中：${username}`;
-    setFooterStatus('srv', 'srv-rec', `サーバー録音中`);
+    $('label-srv-rec').textContent = `録音中：${username}`;
+    setFooterStatus('srv', 'srv-rec', `録音中`);
 
     console.log('[サーバー録音] 開始:', username);
+    return true;
   } catch (err) {
     console.error('[サーバー録音] 開始エラー:', err);
-    showToast(`サーバー録音エラー: ${err.message}`, 'error');
+    showToast(`録音エラー: ${err.message}`, 'error');
+    return false;
+  } finally {
+    srvRecStarting = false;
   }
+}
+
+let recordingPairStartPromise = null;
+async function startRecordingPair() {
+  if (isRecordingActive()) return false;
+  if (recordingPairStartPromise) return recordingPairStartPromise;
+  recordingPairStartPromise = (async () => {
+    const freshClock = await syncClockWithServer({ showWarning: true });
+    const [localStarted, serverStarted] = await Promise.all([
+      LOCAL_RECORDING_ENABLED ? startRecording(freshClock) : true,
+      startServerRecording(getUserName(), freshClock),
+    ]);
+    return Boolean(localStarted && serverStarted);
+  })().finally(() => { recordingPairStartPromise = null; });
+  return recordingPairStartPromise;
 }
 
 function stopServerRecording() {
   if (!srvRecActive) return;
   srvRecActive = false;
+  clearServerRecordingClientHealthTimers();
+  setRecordingHealthAlert({ username: getUserName(), source: 'client', active: false });
+  if (!LOCAL_RECORDING_ENABLED) { setRecordingUI(false); clearInterval(state.timerInterval); }
 
   if (srvRecMR && srvRecMR.state !== 'inactive') {
     srvRecMR.stop();
   }
   if (srvRecStream) {
-    srvRecStream.getTracks().forEach(t => t.stop());
+    if (!srvRecStreamShared) srvRecStream.getTracks().forEach(t => t.stop());
     srvRecStream = null;
   }
-  if (ws.socket) ws.socket.volatile.emit('stop-server-recording');
+  if (ws.socket) ws.socket.emit('stop-server-recording');
   srvRecMR = null;
 
   setDot('srv-rec', 'converting');
-  $('label-srv-rec').textContent = 'サーバー録音：変換中...';
-  setFooterStatus('srv', 'converting', 'サーバー録音：変換中...');
+  $('label-srv-rec').textContent = '録音：変換中...';
+  setFooterStatus('srv', 'converting', '録音：変換中...');
 
   console.log('[サーバー録音] 停止・サーバーへ保存指示（完了通知待ち）');
   // 完了はサーバーから 'server-recording-saved' イベントで通知される
@@ -1631,8 +2658,10 @@ function selectEpisode(id) {
   saveLocalEpisodes();
 
   if (ws.inCall && ws.socket) {
+    if (myHeldLock && myHeldLock !== id) ws.socket.emit('episode-lock-release', { episodeId: myHeldLock });
     ws.socket.emit('episode-select', { id });
   }
+  applyLockUI();
 }
 
 function addEpisode() {
@@ -1756,6 +2785,22 @@ function updateSyncBadge(state) {
 
 const typingPeers = new Set();
 let typingStopTimer = null;
+// 台本編集ロック状態
+const lockedEpisodes = {}; // episodeId -> 編集中の他人の名前
+let myHeldLock = null;     // 自分が保持中のepisodeId
+function applyLockUI() {
+  const ta = $('script-textarea');
+  const banner = $('script-lock-banner');
+  const activeId = episodeState.activeId;
+  const lockedBy = lockedEpisodes[activeId];
+  if (lockedBy && myHeldLock !== activeId) {
+    ta.readOnly = true; ta.classList.add('locked');
+    if (banner) { banner.textContent = `🔒 ${lockedBy} さんが編集中です`; banner.style.display = 'block'; }
+  } else {
+    ta.readOnly = false; ta.classList.remove('locked');
+    if (banner) banner.style.display = 'none';
+  }
+}
 
 function updateTypingIndicator() {
   const el = $('script-typing-indicator');
@@ -1775,16 +2820,24 @@ $('script-textarea').addEventListener('input', () => {
     return;
   }
 
+  // 他人が編集ロック中なら送信しない（readOnlyの二重防御）
+  if (lockedEpisodes[episodeState.activeId] && myHeldLock !== episodeState.activeId) return;
+
+  // 編集ロックを取得/延長
+  if (ws.socket) ws.socket.emit('episode-lock-request', { episodeId: episodeState.activeId });
+
   if (ws.socket) ws.socket.emit('script-typing', true);
   clearTimeout(typingStopTimer);
   typingStopTimer = setTimeout(() => {
     if (ws.socket) ws.socket.emit('script-typing', false);
+    if (ws.socket && myHeldLock) ws.socket.emit('episode-lock-release', { episodeId: myHeldLock });
   }, 1500);
 
   clearTimeout(scriptDebounce);
   updateSyncBadge('syncing');
   scriptDebounce = setTimeout(() => {
-    if (ep && ws.socket) {
+    // ロック保持中のみ送信
+    if (ep && ws.socket && myHeldLock === episodeState.activeId) {
       ws.socket.emit('episode-update', { id: ep.id, content: ep.content });
     }
     updateSyncBadge('synced');
@@ -1797,21 +2850,261 @@ $('script-textarea').addEventListener('input', () => {
 
 let vuAnalyser = null;
 let vuStream = null;
+let vuStreamShared = false; // VUが共有トラックを使用中か
 let vuAnimFrame = null;
 let vuCtx = null;
 let silenceTimer = null;
 
+// ===== マイク取得共通ヘルパー =====
+const LS_SPEAKER_MODE_KEY = 'surecast-speaker-mode';
+let sharedRawStream = null;
+let sharedRawStreamPromise = null;
+let sharedRawCaptureEpoch = 0;
+let audioSwitchPromise = null;
+let lastMicSelection = '';
+
+function isSpeakerModeEnabled() {
+  return Boolean($('speaker-mode')?.checked);
+}
+
+function getAudioCaptureOptions(sampleRate) {
+  const processed = isSpeakerModeEnabled();
+  return {
+    echoCancellation: processed,
+    noiseSuppression: processed,
+    autoGainControl: processed,
+    channelCount: 1,
+    sampleRate: sampleRate || 48000,
+  };
+}
+
+// 選択中のマイクで取得を試み、失敗したら既定マイクにフォールバックして警告を出す。
+// 音声を含むgetUserMediaは、この関数からだけ呼び出す。
+async function getMicStreamSafe(audioOpts) {
+  const deviceId = $('mic-select').value;
+  if (deviceId) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId }, ...audioOpts }
+      });
+    } catch (e) {
+      console.warn('[マイク取得] 選択デバイスで失敗、既定マイクにフォールバック:', e.message);
+      showToast('選択したマイクが使用できないため、既定のマイクに切り替えました', 'error');
+    }
+  }
+  return await navigator.mediaDevices.getUserMedia({ audio: { ...audioOpts } });
+}
+
+function releaseSharedAudioCapture() {
+  sharedRawCaptureEpoch++;
+  sharedRawStream?.getTracks().forEach(track => track.stop());
+  sharedRawStream = null;
+}
+
+// 通話・ローカル録音・サーバー録音・VUが同じ1本の音声トラックを共有する。
+async function acquireRawAudioStream(sampleRate) {
+  if (sharedRawStream) {
+    const at = sharedRawStream.getAudioTracks()[0];
+    if (at && at.readyState === 'live') return { stream: new MediaStream([at]), shared: true };
+    sharedRawStream = null;
+  }
+
+  if (sharedRawStreamPromise) {
+    try {
+      const pendingStream = await sharedRawStreamPromise;
+      const pendingTrack = pendingStream.getAudioTracks()[0];
+      if (pendingTrack?.readyState === 'live') return { stream: new MediaStream([pendingTrack]), shared: true };
+    } catch {}
+  }
+
+  const captureEpoch = sharedRawCaptureEpoch;
+  const pending = getMicStreamSafe(getAudioCaptureOptions(sampleRate)).then(stream => {
+    if (captureEpoch !== sharedRawCaptureEpoch) {
+      stream.getTracks().forEach(track => track.stop());
+      throw new Error('マイク取得がキャンセルされました');
+    }
+    sharedRawStream = stream;
+    attachMicWatchdog(stream.getAudioTracks()[0]);
+    return stream;
+  });
+  sharedRawStreamPromise = pending;
+  pending.finally(() => {
+    if (sharedRawStreamPromise === pending) sharedRawStreamPromise = null;
+  }).catch(() => {});
+
+  const st = await pending;
+  return { stream: new MediaStream([st.getAudioTracks()[0]]), shared: true };
+}
+
+async function replaceSharedAudioTrackInCall(newAudioTrack) {
+  if (!ws.localStream) return;
+  ws.localStream.getAudioTracks().forEach(track => ws.localStream.removeTrack(track));
+  ws.localStream.addTrack(newAudioTrack);
+  if (window.__mediaCore) window.__mediaCore.setLocalStream(ws.localStream);
+  await applyCallAudioMuteState();
+}
+
+async function reacquireSharedAudioTrack() {
+  if (audioSwitchPromise) return audioSwitchPromise;
+  audioSwitchPromise = (async () => {
+    stopVUMeter();
+    releaseSharedAudioCapture();
+    const { stream } = await acquireRawAudioStream(48000);
+    const newAudioTrack = stream.getAudioTracks()[0];
+    if (!newAudioTrack) throw new Error('マイク音声を取得できませんでした');
+    await replaceSharedAudioTrackInCall(newAudioTrack);
+    await startVUMeter();
+    return newAudioTrack;
+  })().finally(() => { audioSwitchPromise = null; });
+  return audioSwitchPromise;
+}
+
+async function inspectAudioTrackHealth(track, durationMs = 600) {
+  if (!track || track.readyState !== 'live') return { dead: true, reason: 'ended' };
+  if (track.muted) return { dead: true, reason: 'muted' };
+
+  let context = null;
+  let analyser = null;
+  try {
+    if (vuAnalyser && vuCtx?.state === 'running' && vuStream?.getAudioTracks()[0] === track) {
+      analyser = vuAnalyser;
+    } else {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return { dead: false, reason: 'probe-unavailable' };
+      context = new AudioContextClass();
+      if (context.state === 'suspended') await context.resume().catch(() => {});
+      if (context.state !== 'running') return { dead: false, reason: 'probe-suspended' };
+      analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      context.createMediaStreamSource(new MediaStream([track])).connect(analyser);
+    }
+
+    const samples = new Float32Array(analyser.fftSize);
+    const deadline = performance.now() + durationMs;
+    do {
+      if (track.muted || track.readyState !== 'live') return { dead: true, reason: track.muted ? 'muted' : 'ended' };
+      analyser.getFloatTimeDomainData(samples);
+      for (let i = 0; i < samples.length; i++) {
+        if (Math.abs(samples[i]) > 0) return { dead: false, reason: 'signal' };
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } while (performance.now() < deadline);
+
+    return { dead: true, reason: 'digital-silence' };
+  } finally {
+    if (context) context.close().catch(() => {});
+  }
+}
+
+let recordingAudioPreflightPromise = null;
+async function ensureRecordingAudioReady() {
+  if (recordingAudioPreflightPromise) return recordingAudioPreflightPromise;
+  recordingAudioPreflightPromise = (async () => {
+    const username = getUserName() || 'user';
+    let { stream } = await acquireRawAudioStream(48000);
+    let track = stream.getAudioTracks()[0];
+    let health = await inspectAudioTrackHealth(track);
+
+    if (health.dead) {
+      console.warn(`[録音前検査] マイク異常 (${health.reason})。1回だけ再取得します`);
+      track = await reacquireSharedAudioTrack();
+      health = await inspectAudioTrackHealth(track);
+    }
+
+    setRecordingHealthAlert({
+      username,
+      reason: 'no-audio',
+      source: 'preflight',
+      active: health.dead,
+    });
+    if (health.dead) {
+      console.error(`[録音前検査] 再取得後も音声データを確認できません (${health.reason})。録音は開始します`);
+    }
+    return track;
+  })().finally(() => { recordingAudioPreflightPromise = null; });
+  return recordingAudioPreflightPromise;
+}
+
+function waitForRecorderStop(recorder, timeoutMs = 1500) {
+  if (!recorder || recorder.state === 'inactive') return Promise.resolve();
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, timeoutMs);
+    recorder.addEventListener('stop', () => {
+      clearTimeout(timer);
+      resolve();
+    }, { once: true });
+  });
+}
+
+function pauseServerRecorderForMicrophoneRecovery() {
+  if (!srvRecActive) return null;
+  srvRecActive = false;
+  clearServerRecordingClientHealthTimers();
+  const recorder = srvRecMR;
+  if (recorder?.state !== 'inactive') recorder.stop();
+  srvRecMR = null;
+  srvRecStream = null;
+  return recorder;
+}
+
+async function recoverMicrophoneFromWarning() {
+  const button = $('btn-reacquire-mic');
+  if (button?.disabled) return;
+  const username = getUserName() || 'user';
+  const restartLocal = state.isRecording;
+  const restartServer = srvRecActive;
+  button.disabled = true;
+  button.textContent = '再取得中...';
+
+  try {
+    let localRecorder = null;
+    let serverRecorder = null;
+    if (restartLocal) localRecorder = stopRecording({ forRecovery: true });
+    if (restartServer) serverRecorder = pauseServerRecorderForMicrophoneRecovery();
+    await Promise.all([
+      waitForRecorderStop(localRecorder),
+      waitForRecorderStop(serverRecorder),
+    ]);
+
+    const track = await reacquireSharedAudioTrack();
+    const health = await inspectAudioTrackHealth(track);
+    if (health.dead) throw new Error(`再取得したマイクから音声データを確認できません (${health.reason})`);
+
+    clearOwnRecoverableRecordingAlerts();
+    const freshClock = await syncClockWithServer({ showWarning: true });
+    const [localRestarted, serverRestarted] = await Promise.all([
+      restartLocal ? startRecording(freshClock) : true,
+      restartServer ? startServerRecording(username, freshClock) : true,
+    ]);
+    if (!localRestarted || !serverRestarted) throw new Error('録音を再開できませんでした');
+    showToast(restartLocal || restartServer
+      ? 'マイクを再取得し、録音を再開しました'
+      : 'マイクを再取得しました', 'success');
+  } catch (err) {
+    console.error('[マイク復旧] エラー:', err);
+    setRecordingHealthAlert({ username, source: 'recovery', active: true });
+    if (!isRecordingActive()) setRecordingUI(false);
+    showToast(`マイクの再取得に失敗しました: ${err.message}`, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'マイクを再取得';
+  }
+}
+
 async function startVUMeter() {
   if (vuAnalyser) return;
   try {
-    const deviceId = $('mic-select').value;
-    const constraints = {
-      audio: deviceId
-        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false }
-        : { echoCancellation: false, noiseSuppression: false }
-    };
-    vuStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const _vu = await acquireRawAudioStream();
+    vuStream = _vu.stream;
+    vuStreamShared = _vu.shared;
     vuCtx = new AudioContext();
+    // スマホ/Safari: ユーザー操作外で作られた AudioContext は suspended のままになる
+    if (vuCtx.state === 'suspended') {
+      vuCtx.resume().catch(() => {});
+      const resumeOnTap = () => { if (vuCtx && vuCtx.state === 'suspended') vuCtx.resume().catch(() => {}); };
+      document.addEventListener('click', resumeOnTap, { once: true });
+      document.addEventListener('touchstart', resumeOnTap, { once: true });
+    }
     const source = vuCtx.createMediaStreamSource(vuStream);
     vuAnalyser = vuCtx.createAnalyser();
     vuAnalyser.fftSize = 2048;
@@ -1826,7 +3119,7 @@ async function startVUMeter() {
 
 function stopVUMeter() {
   if (vuAnimFrame) { cancelAnimationFrame(vuAnimFrame); vuAnimFrame = null; }
-  if (vuStream) { vuStream.getTracks().forEach(t => t.stop()); vuStream = null; }
+  if (vuStream) { if (!vuStreamShared) vuStream.getTracks().forEach(t => t.stop()); vuStream = null; }
   if (vuCtx) { vuCtx.close().catch(() => {}); vuCtx = null; }
   vuAnalyser = null;
   if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
@@ -1878,11 +3171,13 @@ function updateVUMeter() {
     }
   }
 
-  if (db < -55) {
+  if (!isRecordingActive() && db < -55) {
     if (!silenceTimer) {
       silenceTimer = setTimeout(() => {
         if (msg && !msg.textContent) {
-          msg.textContent = '⚠️ マイクを確認してください（5秒以上無音が続いています）';
+          const sel = $('mic-select');
+          const micName = (sel && sel.selectedIndex >= 0) ? sel.options[sel.selectedIndex].text : '選択中のマイク';
+          msg.textContent = `⚠️ 「${micName}」が5秒以上無音です。マイクのミュート/ゲイン、または別のマイクを試してください`;
           msg.style.color = 'var(--yellow)';
         }
       }, 5000);
@@ -1895,9 +3190,45 @@ function updateVUMeter() {
 }
 
 $('mic-select').addEventListener('change', async () => {
-  if (vuAnalyser) {
-    stopVUMeter();
-    await startVUMeter();
+  if (isRecordingConfigurationLocked()) {
+    $('mic-select').value = lastMicSelection;
+    showToast('録音中は変更できません', 'error');
+    return;
+  }
+  try {
+    await reacquireSharedAudioTrack();
+    lastMicSelection = $('mic-select').value;
+    clearOwnRecoverableRecordingAlerts();
+    showToast('マイクを切り替えました', 'success');
+  } catch (err) {
+    $('mic-select').value = lastMicSelection;
+    await reacquireSharedAudioTrack().catch(() => {});
+    console.error('[マイク切替] エラー:', err);
+    showToast(`マイク切替エラー: ${err.message}`, 'error');
+  }
+});
+
+$('speaker-mode').checked = localStorage.getItem(LS_SPEAKER_MODE_KEY) === '1';
+$('speaker-mode').addEventListener('change', async (event) => {
+  const checkbox = event.currentTarget;
+  const previousValue = !checkbox.checked;
+  if (isRecordingConfigurationLocked()) {
+    checkbox.checked = previousValue;
+    showToast('録音中は変更できません', 'error');
+    return;
+  }
+
+  localStorage.setItem(LS_SPEAKER_MODE_KEY, checkbox.checked ? '1' : '0');
+  try {
+    await reacquireSharedAudioTrack();
+    clearOwnRecoverableRecordingAlerts();
+    showToast(checkbox.checked ? 'エコー対策を有効にしました' : '生音声モードに戻しました', 'success');
+  } catch (err) {
+    checkbox.checked = previousValue;
+    localStorage.setItem(LS_SPEAKER_MODE_KEY, previousValue ? '1' : '0');
+    await reacquireSharedAudioTrack().catch(() => {});
+    console.error('[スピーカーモード] 切替エラー:', err);
+    showToast(`設定変更エラー: ${err.message}`, 'error');
   }
 });
 
@@ -2020,21 +3351,88 @@ const state = {
   stream: null,
   chunks: [],        // メモリ上のチャンク（全件保持）
   isRecording: false,
+  starting: false,
   startTime: null,
   timerInterval: null,
   chunkCount: 0,     // IDBバックアップ用インデックス
   mimeType: '',
   sessionId: '',
+  clockSyncOk: false,
+  clockRttMs: null,
+  clockOffsetMs: 0,
 };
+
+// ===== 録音方式の設定 =====
+// LOCAL_RECORDING_ENABLED: ローカル録音(ブラウザ内128k→アップロード)を使うか。
+// true = サーバー録音と並行して、ブラウザ内にもバックアップ録音を保持する
+const LOCAL_RECORDING_ENABLED = true;
+
+// ローカル録音を有効化した場合のみステータス表示を出す
+if (LOCAL_RECORDING_ENABLED) {
+  const _li = document.getElementById('status-item-local-rec');
+  if (_li) _li.style.display = '';
+}
+
+// 「録音中か」の統合判定（ローカル録音の有無に依存しない）
+function isRecordingActive() {
+  return (state && state.isRecording) || srvRecActive;
+}
+
+function isRecordingConfigurationLocked() {
+  return isRecordingActive() || state.starting || srvRecStarting || Boolean(recordingAudioPreflightPromise);
+}
 
 const btnStart  = $('btn-start');
 const btnStop   = $('btn-stop');
 const micSelect = $('mic-select');
 
+// ===== アプリ内ブラウザ検出（LINE/Instagram等はマイクが使えないため脱出を案内） =====
+function isInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  return /Line\/|FBAN|FBAV|Instagram|Twitter|TwitterAndroid|Discord|MicroMessenger|TikTok|musical_ly/i.test(ua)
+    || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia;
+}
+
+function detectInAppBrowser() {
+  if (!isInAppBrowser()) return false;
+
+  const isAndroid = /Android/i.test(ua);
+  const pageUrl = new URL(window.location.href);
+  pageUrl.searchParams.delete('openExternalBrowser');
+  const plainUrl = pageUrl.toString();
+  // Android: Chromeを直接起動するintentリンク / iOS: Safari起動スキーム
+  const escapeHref = isAndroid
+    ? 'intent://' + pageUrl.host + pageUrl.pathname + pageUrl.search + '#Intent;scheme=https;package=com.android.chrome;end'
+    : 'x-safari-' + plainUrl;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0f0f0f;color:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:28px;text-align:center;font-family:inherit;';
+  overlay.innerHTML = `
+    <div style="font-size:2.4rem;">⚠️</div>
+    <div style="font-size:1.05rem;font-weight:700;line-height:1.6;">アプリ内ブラウザでは<br>マイク・カメラが使用できません</div>
+    <div style="font-size:0.85rem;color:#a0a0a0;line-height:1.7;">SafariまたはChromeで開き直してください。<br>下のボタンで開けない場合は、URLをコピーして<br>ブラウザのアドレス欄に貼り付けてください。</div>
+    <a href="${escapeHref}" style="display:block;padding:14px 28px;background:#d97706;color:#000;font-weight:800;border-radius:10px;text-decoration:none;font-size:0.95rem;">🌐 ブラウザで開く</a>
+    <button id="inapp-copy-btn" style="padding:12px 24px;background:#222;color:#d97706;border:1px solid #d97706;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer;font-family:inherit;">📋 URLをコピー</button>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('inapp-copy-btn').addEventListener('click', () => {
+    const done = () => { document.getElementById('inapp-copy-btn').textContent = '✓ コピーしました'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(plainUrl).then(done).catch(() => {
+        prompt('このURLをコピーしてください', plainUrl);
+      });
+    } else {
+      prompt('このURLをコピーしてください', plainUrl);
+    }
+  });
+  return true;
+}
+detectInAppBrowser();
+
 async function loadMics() {
   try {
-    const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
-    tmp.getTracks().forEach(t => t.stop());
+    // デバイス名の許可取得にもVU・録音共用の生音声を使い、getUserMediaを余分に開かない
+    await acquireRawAudioStream(48000);
     const devices = await navigator.mediaDevices.enumerateDevices();
     const mics = devices.filter(d => d.kind === 'audioinput');
     micSelect.innerHTML = '';
@@ -2044,6 +3442,7 @@ async function loadMics() {
       opt.textContent = m.label || `マイク ${i + 1}`;
       micSelect.appendChild(opt);
     });
+    lastMicSelection = micSelect.value;
     setDot('mic', 'ok');
     $('label-mic').textContent = `マイク：${mics.length}台検出`;
 
@@ -2053,6 +3452,56 @@ async function loadMics() {
     $('label-mic').textContent = 'マイク：アクセス拒否';
     showToast('マイクへのアクセスを許可してください', 'error');
   }
+}
+
+// ===== マイクの抜き差しをリアルタイム検知して一覧を更新 =====
+navigator.mediaDevices.addEventListener('devicechange', async () => {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const mics = devices.filter(d => d.kind === 'audioinput');
+    const prev = micSelect.value;
+    micSelect.innerHTML = '';
+    mics.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = m.deviceId;
+      opt.textContent = m.label || `マイク ${i + 1}`;
+      micSelect.appendChild(opt);
+    });
+    $('label-mic').textContent = `マイク：${mics.length}台検出`;
+    if (prev && mics.some(m => m.deviceId === prev)) {
+      micSelect.value = prev; // 使用中のマイクは選択を維持
+      showToast('マイク構成が変わりました（使用中のマイクは維持）', 'info');
+    } else if (prev) {
+      // 使用中のマイクが消えた → 既定へ切替（changeイベントでVU再起動＆通話トラック差し替え）
+      showToast('使用中のマイクが取り外されました。既定のマイクに切り替えます', 'error');
+      micSelect.dispatchEvent(new Event('change'));
+    }
+  } catch (e) {
+    console.warn('[devicechange] 一覧更新失敗:', e.message);
+  }
+});
+
+// ===== 通話マイクの異常検知（物理切断・OSレベルのミュート） =====
+function attachMicWatchdog(track) {
+  if (!track) return;
+  track.onended = () => {
+    console.warn('[マイク監視] トラックが終了しました（デバイス切断の可能性）');
+    if (isRecordingActive()) {
+      setRecordingHealthAlert({ username: getUserName(), source: 'watchdog', active: true });
+    }
+    showToast('⚠️ 通話マイクが切断されました。マイク選択から選び直してください', 'error');
+  };
+  track.onmute = () => {
+    console.warn('[マイク監視] トラックがミュートされました');
+    if (isRecordingActive()) {
+      setRecordingHealthAlert({ username: getUserName(), source: 'watchdog', active: true });
+    }
+    showToast('⚠️ マイク音声が途切れています（デバイスやOS側の問題の可能性）', 'error');
+  };
+  track.onunmute = () => {
+    setRecordingHealthAlert({ username: getUserName(), source: 'watchdog', active: false });
+    showToast('マイク音声が復帰しました', 'success');
+  };
 }
 
 function getBestMimeType() {
@@ -2068,15 +3517,15 @@ function getBestMimeType() {
   return '';
 }
 
-async function startRecording() {
+async function startRecording(clockSync = null) {
+  if (!LOCAL_RECORDING_ENABLED) return; // サーバー録音のみ運用
+  if (state.isRecording || state.starting) return;
+  state.starting = true;
   try {
-    const deviceId = micSelect.value;
-    const constraints = {
-      audio: deviceId
-        ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, sampleRate: 44100 }
-        : { echoCancellation: false, noiseSuppression: false, sampleRate: 44100 }
-    };
-    state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const freshClock = clockSync || await syncClockWithServer({ showWarning: true });
+    const audioTrack = await ensureRecordingAudioReady();
+    state.stream = new MediaStream([audioTrack]);
+    state.streamShared = true;
 
     state.mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
@@ -2089,7 +3538,7 @@ async function startRecording() {
 
     state.mediaRecorder = new MediaRecorder(state.stream, {
       mimeType: state.mimeType || undefined,
-      audioBitsPerSecond: 128000, // 128kbps（高音質・ポッドキャスト推奨）
+      audioBitsPerSecond: 128000, // 128kbps（AGCオフの生録音。モノラル音声では実用上ロスレス相当）
     });
 
     state.mediaRecorder.ondataavailable = (e) => {
@@ -2108,6 +3557,14 @@ async function startRecording() {
     };
 
     state.mediaRecorder.onstop = finalizeRecording;
+    state.syncId = ws.syncId || null;
+    state.startEpoch = null;
+    state.clockSyncOk = freshClock.clockSyncOk;
+    state.clockRttMs = freshClock.clockRttMs;
+    state.clockOffsetMs = freshClock.clockOffsetMs;
+    state.mediaRecorder.onstart = () => {
+      state.startEpoch = Date.now() + (ws.clockOffset || 0);
+    };
     state.mediaRecorder.start(10000); // 10秒チャンク（IDB書き込み頻度を下げCPU/IO負荷軽減）
 
     state.isRecording = true;
@@ -2121,30 +3578,47 @@ async function startRecording() {
     setFooterStatus('local', 'active', 'ローカル録音：収録中');
 
     showToast('録音を開始しました', 'success');
+    if (ws.inCall && ws.socket) ws.socket.emit('recording-status', { isRecording: true });
+    return true;
 
   } catch (err) {
     showToast(`録音開始エラー: ${err.message}`, 'error');
+    return false;
+  } finally {
+    state.starting = false;
   }
 }
 
-function stopRecording() {
-  if (!state.mediaRecorder || state.mediaRecorder.state === 'inactive') return;
+function stopRecording({ forRecovery = false } = {}) {
+  if (!state.mediaRecorder) return null;
+  const recorder = state.mediaRecorder;
   clearInterval(state.timerInterval);
-  state.mediaRecorder.stop();
-  state.stream?.getTracks().forEach(t => t.stop());
+  if (recorder.state !== 'inactive') recorder.stop();
+  if (!state.streamShared) state.stream?.getTracks().forEach(t => t.stop());
   state.isRecording = false;
-  setRecordingUI(false);
+  if (!forRecovery) setRecordingUI(false);
 
   setDot('local-rec', '');
-  $('label-local-rec').textContent = 'ローカル録音：変換中...';
-  setFooterStatus('local', '', 'ローカル録音：変換中...');
+  $('label-local-rec').textContent = forRecovery ? 'ローカル録音：マイク復旧中...' : 'ローカル録音：変換中...';
+  setFooterStatus('local', '', forRecovery ? 'マイク復旧中...' : 'ローカル録音：変換中...');
+  if (!forRecovery && ws.inCall && ws.socket) ws.socket.emit('recording-status', { isRecording: false });
+  return recorder;
 }
 
 async function finalizeRecording() {
   const sessionId = state.sessionId;
   const mimeType = state.mimeType || 'audio/webm;codecs=opus';
+  const syncMeta = {
+    syncId: state.syncId || null,
+    startEpoch: state.startEpoch || null,
+    endEpoch: Date.now() + (ws.clockOffset || 0),
+    clockSyncOk: state.clockSyncOk,
+    clockRttMs: state.clockRttMs,
+    clockOffsetMs: state.clockOffsetMs,
+  };
   const memoryChunks = [...state.chunks]; // メモリチャンクをコピー
   state.chunks = []; // クリア
+  const ownsRecordingUI = () => state.sessionId === sessionId && !state.isRecording;
 
   let finalBlob = null;
 
@@ -2164,9 +3638,12 @@ async function finalizeRecording() {
 
   if (!finalBlob || finalBlob.size === 0) {
     console.warn('[録音] データがありません（メモリ・IDB両方空）');
-    setDot('local-rec', 'warn');
-    $('label-local-rec').textContent = 'ローカル録音：停止中（データなし）';
-    setFooterStatus('local', 'warn', 'データなし');
+    if (ownsRecordingUI()) {
+      setDot('local-rec', 'warn');
+      $('label-local-rec').textContent = 'ローカル録音：停止中（データなし）';
+      setFooterStatus('local', 'warn', 'データなし');
+    }
+    setRecordingHealthAlert({ username: getUserName(), source: 'local-empty', active: true });
     await idbClearSession(sessionId);
     return;
   }
@@ -2176,15 +3653,19 @@ async function finalizeRecording() {
   addConvertStatus(itemId, `FLAC変換・アップロード中... (${formatSize(finalBlob.size)}) ※低回線では時間がかかります`, 'converting');
 
   try {
-    const data = await uploadForFlacConversion(finalBlob, username);
+    const data = await uploadForFlacConversion(finalBlob, username, syncMeta);
     updateConvertStatus(itemId, `✓ 保存完了：${data.filename} (${formatSize(data.size)})`, 'done');
-    setDot('local-rec', 'ok');
-    $('label-local-rec').textContent = 'ローカル録音：保存完了';
-    setFooterStatus('local', 'ok', 'ローカル録音：保存完了');
-    setTimeout(() => {
-      $('label-local-rec').textContent = 'ローカル録音：停止中';
-      setFooterStatus('local', '', 'ローカル録音：停止中');
-    }, 5000);
+    if (ownsRecordingUI()) {
+      setDot('local-rec', 'ok');
+      $('label-local-rec').textContent = 'ローカル録音：保存完了';
+      setFooterStatus('local', 'ok', 'ローカル録音：保存完了');
+      setTimeout(() => {
+        if (!state.isRecording) {
+          $('label-local-rec').textContent = 'ローカル録音：停止中';
+          setFooterStatus('local', '', 'ローカル録音：停止中');
+        }
+      }, 5000);
+    }
     await idbClearSession(sessionId);
   } catch (err) {
     // ★ FLAC変換失敗時：WebMとして直接ダウンロード（低回線でのセーフティネット）
@@ -2194,18 +3675,28 @@ async function finalizeRecording() {
       `⚠️ FLAC変換失敗のためWebMで保存済み：${webmFilename}\n（エラー：${err.message}）`,
       'error'
     );
-    setDot('local-rec', 'warn');
-    $('label-local-rec').textContent = 'ローカル録音：WebMで保存済み';
-    setFooterStatus('local', 'warn', 'ローカル録音：WebMで保存済み');
+    if (ownsRecordingUI()) {
+      setDot('local-rec', 'warn');
+      $('label-local-rec').textContent = 'ローカル録音：WebMで保存済み';
+      setFooterStatus('local', 'warn', 'ローカル録音：WebMで保存済み');
+    }
     showToast('FLAC変換に失敗しました。WebMファイルとしてダウンロードしました。', 'error');
     // IDBは保持しておく（再試行可能なように）
   }
 }
 
-async function uploadForFlacConversion(blob, username) {
+async function uploadForFlacConversion(blob, username, syncMeta = null) {
   const formData = new FormData();
   formData.append('audio', blob, 'recording.webm');
   formData.append('username', (username || 'user').replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 20));
+  if (syncMeta?.syncId && syncMeta.startEpoch) {
+    formData.append('syncId', syncMeta.syncId);
+    formData.append('startEpoch', String(Math.round(syncMeta.startEpoch)));
+    formData.append('endEpoch', String(Math.round(syncMeta.endEpoch || Date.now() + (ws.clockOffset || 0))));
+    formData.append('clockSyncOk', String(syncMeta.clockSyncOk === true));
+    if (syncMeta.clockRttMs !== null) formData.append('clockRttMs', String(Math.round(syncMeta.clockRttMs)));
+    if (syncMeta.clockOffsetMs !== null) formData.append('clockOffsetMs', String(Math.round(syncMeta.clockOffsetMs)));
+  }
 
   // タイムアウトを10分に設定（低回線での大容量アップロード対応）
   // 2時間×96kbps ≈ 86MB のアップロードを許容
@@ -2232,7 +3723,7 @@ async function uploadForFlacConversion(blob, username) {
 // WebMとしてブラウザから直接ダウンロード（FLAC変換失敗時のバックアップ）
 function downloadWebmDirect(blob, username, sessionId) {
   const safeUser = (username || 'user').replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 20);
-  const filename = `surecast-${safeUser}-${sessionId}-local.webm`;
+  const filename = `${safeUser}-${sessionId}-local.webm`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -2277,6 +3768,10 @@ function updateConvertStatus(id, text, type) {
 function startTimer() {
   const timerEl = $('rec-timer-inline');
   timerEl.style.display = 'inline';
+  // 呼び出し時点を必ず起点にする（サーバー録音のみの構成でも0:00から始まるように）
+  state.startTime = Date.now();
+  timerEl.textContent = '00:00';
+  clearInterval(state.timerInterval);
   state.timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
     const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
@@ -2289,6 +3784,8 @@ function setRecordingUI(recording) {
   btnStart.disabled = recording;
   btnStop.disabled  = !recording;
   micSelect.disabled = recording;
+  $('speaker-mode').disabled = recording;
+  updateRecAllButton();
 
   const leftCol = $('left-col');
   if (recording) {
@@ -2316,7 +3813,7 @@ async function checkServer() {
     const res = await fetch('/recordings', { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       setDot('srv-rec', '');
-      $('label-srv-rec').textContent = 'サーバー録音：待機中';
+      $('label-srv-rec').textContent = '録音：待機中';
     }
   } catch {
     // サイレントに失敗
@@ -2368,16 +3865,20 @@ function updateConnQuality(rtt) {
   }
 }
 
-btnStart.addEventListener('click', () => {
-  startRecording();
-  startServerRecording(getUsername());
-});
+btnStart.addEventListener('click', () => { void startRecordingPair(); });
 btnStop.addEventListener('click', () => {
-  stopRecording();
-  stopServerRecording();
+  // 一斉録音セッション中（syncIdあり）は全員停止、個別録音は自分だけ停止
+  if ((state.syncId || ws.syncId) && ws.socket && ws.inCall) {
+    if (!confirm('参加中の全員の録音を停止します。よろしいですか？')) return;
+    ws.socket.emit('recording-stop-all');
+  } else {
+    stopRecording();
+    stopServerRecording();
+    ws.syncId = null;
+  }
 });
 window.addEventListener('beforeunload', (e) => {
-  if (state.isRecording) {
+  if (isRecordingActive()) {
     e.preventDefault();
     e.returnValue = '録音中です。ページを離れると録音データが失われる可能性があります。';
     // メモリ上の未保存チャンクをIDBに緊急フラッシュ（クラッシュリカバリー用）
@@ -2406,10 +3907,26 @@ window.addEventListener('beforeunload', (e) => {
 (async () => {
   loadRoomFromUrl();
   loadUsername();
+  // 初めて使う端末（保存名なし）では、入力欄を強調してフォーカスする
+  const hasSavedUsername = Boolean(localStorage.getItem(LS_USERNAME_KEY));
+  updateUsernameRequirement({ highlight: !hasSavedUsername });
+  $('username-input')?.addEventListener('input', () => updateUsernameRequirement({ highlight: true }));
+  if (!hasSavedUsername) {
+    setTimeout(() => $('username-input')?.focus(), 300);
+  }
   loadLocalEpisodes();
   updateSyncBadge('offline');
   initSocket();
+  // マイク検出が10秒経っても終わらない場合の案内（許可ダイアログ放置・アプリ内ブラウザ等）
+  const micTimeout = setTimeout(() => {
+    if ($('label-mic').textContent.includes('未接続')) {
+      $('label-mic').textContent = 'マイク：検出できません';
+      setDot('mic', 'warn');
+      showToast('マイクを検出できません。①許可ダイアログで「許可」を選択 ②Safari/Chromeで開いているか確認 ③OSのマイク権限を確認してください', 'error');
+    }
+  }, 10000);
   await loadMics();
+  clearTimeout(micTimeout);
   await checkServer();
   idb = await openIDB().catch(() => null);
   await checkRecovery();

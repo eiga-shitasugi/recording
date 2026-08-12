@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.*
+node_modules
+npm-debug.log*
+
+# Runtime data is bind-mounted by docker-compose and must never be baked into images.
+uploads
+recordings
+episodes
+
+# Operational backups and local test artifacts are not application runtime files.
+backups
+artifacts
+*.bak
+*.bak-*

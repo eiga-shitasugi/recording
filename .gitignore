@@ -20,3 +20,14 @@ Thumbs.db
 # エディタ
 .vscode/
 *.swp
+
+# 旧テスト録音（大容量・1.7GB）
+recordings/
+
+# 変更前バックアップ
+backups/
+*.bak
+*.bak-*
+
+# 実行時データ（台本。コードではないため別管理）
+episodes/
